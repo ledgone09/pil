@@ -2253,18 +2253,32 @@
                         gameState.playerCount = state.playerCount;
                         gameState.pills = state.pills || {};
                         
+                        // Store daily leaderboard in gameState for later access
+                        if (state.dailyLeaderboard) {
+                            gameState.dailyLeaderboard = state.dailyLeaderboard;
+                            console.log('💾 Stored daily leaderboard in gameState:', gameState.dailyLeaderboard);
+                        }
+                        
                         // Initialize daily leaderboard for "TOP PILLERS RIGHT NOW"
                         if (state.dailyLeaderboard) {
                             updateDailyLeaderboard(state.dailyLeaderboard);
                         }
                         
-                        // Initialize daily top 3 leaderboard (right side and mobile)
+                        // Initialize daily top 3 leaderboard (right side and mobile) - IMMEDIATE UPDATE
                         if (state.dailyLeaderboard) {
-                            updateAllTimeLeaderboard(state.dailyLeaderboard);
+                            console.log('👑 Initializing daily top 3 with game state data:', state.dailyLeaderboard);
+                            // Force immediate update with a small delay to ensure DOM is ready
+                            setTimeout(() => {
+                                updateAllTimeLeaderboard(state.dailyLeaderboard);
+                                console.log('👑 Daily top 3 updated immediately');
+                            }, 100); // Very small delay just for DOM readiness
+                            
                             // Ensure mobile daily leaderboard is also initialized
                             if (state.dailyLeaderboard.topScores) {
                                 updateMobileDailyLeaderboard(state.dailyLeaderboard.topScores.slice(0, 3));
                             }
+                        } else {
+                            console.warn('👑 No daily leaderboard data in initial game state');
                         }
                         
                         // Ensure myPlayer is also in the players collection and they're the same object
@@ -2284,6 +2298,12 @@
                         }
                         updateHUD();
                         updateLeaderboard();
+                        
+                        // Force immediate daily top 3 update if we have data
+                        if (gameState.dailyLeaderboard && gameState.dailyLeaderboard.topScores) {
+                            console.log('👑 Force updating daily top 3 after game state load');
+                            updateAllTimeLeaderboard(gameState.dailyLeaderboard);
+                        }
                         
                         // Force update mobile daily leaderboard on game state received
                         if (state.dailyLeaderboard && state.dailyLeaderboard.topScores) {
@@ -2449,9 +2469,15 @@
                         console.log('📊 TopScores content:', data.topScores);
                     }
                     
+                    // Store updated daily leaderboard in gameState
+                    gameState.dailyLeaderboard = data;
+                    console.log('💾 Updated daily leaderboard in gameState:', gameState.dailyLeaderboard);
+                    
                     updateDailyLeaderboard(data);
-                    // Also update the daily top 3 section (right side and mobile)
+                    // Also update the daily top 3 section (right side and mobile) - IMMEDIATE
                     updateAllTimeLeaderboard(data);
+                    console.log('👑 Daily top 3 updated from socket event');
+                    
                     // Explicitly update mobile daily leaderboard
                     if (data.topScores) {
                         console.log('📱 Updating mobile daily from socket event');
@@ -3598,6 +3624,26 @@
                     console.warn('👑 alltimeLeaderboardList element not found!');
                 }
             };
+
+            window.forceDailyTop3Update = function() {
+                console.log('🔧 Force updating daily top 3...');
+                if (gameState.dailyLeaderboard && gameState.dailyLeaderboard.topScores) {
+                    console.log('🔧 Using current daily leaderboard data:', gameState.dailyLeaderboard.topScores);
+                    updateAllTimeLeaderboard(gameState.dailyLeaderboard);
+                } else {
+                    console.log('🔧 No daily leaderboard data available, using test data');
+                    window.testDailyTop3();
+                }
+            };
+
+            window.checkGameState = function() {
+                console.log('🎮 Current game state:', {
+                    hasGameState: !!gameState,
+                    hasDailyLeaderboard: !!(gameState && gameState.dailyLeaderboard),
+                    dailyLeaderboard: gameState ? gameState.dailyLeaderboard : null,
+                    topScoresCount: gameState && gameState.dailyLeaderboard && gameState.dailyLeaderboard.topScores ? gameState.dailyLeaderboard.topScores.length : 0
+                });
+            };
             
             // Fallback: if no connection after username is submitted, start offline mode
             setTimeout(() => {
@@ -3608,6 +3654,15 @@
                     }
                 }
             }, 3000); // Reduced timeout to 3 seconds
+
+            // Quick fallback test for daily top 3 if no data loads within 2 seconds
+            setTimeout(() => {
+                const element = document.getElementById('alltimeLeaderboardList');
+                if (element && element.innerHTML.includes('No legends yet')) {
+                    console.log('🧪 Daily top 3 still empty after 2 seconds, testing with sample data...');
+                    window.testDailyTop3();
+                }
+            }, 2000); // Reduced to 2 seconds
         });
         
         // Input event listeners
