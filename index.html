@@ -539,6 +539,111 @@
                 display: block;
             }
         }
+
+        /* All-time leaderboard overlay */
+        .alltime-leaderboard {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 280px;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(15px);
+            border-radius: 12px;
+            border: 2px solid rgba(255, 215, 0, 0.4);
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+            z-index: 20;
+            display: none;
+        }
+
+        .alltime-leaderboard-title {
+            font-size: 16px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #ffd700, #ff6b35, #ffd700);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-align: center;
+            margin-bottom: 12px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            text-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+        }
+
+        .alltime-leaderboard-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .alltime-leaderboard-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            background: rgba(255, 215, 0, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid transparent;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+        }
+
+        .alltime-leaderboard-item.first {
+            border-left-color: #ffd700;
+            background: rgba(255, 215, 0, 0.15);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+        }
+
+        .alltime-leaderboard-item.second {
+            border-left-color: #c0c0c0;
+            background: rgba(192, 192, 192, 0.15);
+        }
+
+        .alltime-leaderboard-item.third {
+            border-left-color: #cd7f32;
+            background: rgba(205, 127, 50, 0.15);
+        }
+
+        .alltime-leaderboard-rank {
+            font-size: 16px;
+            font-weight: 900;
+            width: 25px;
+            text-align: center;
+        }
+
+        .alltime-leaderboard-rank.first { color: #ffd700; text-shadow: 0 0 8px rgba(255, 215, 0, 0.5); }
+        .alltime-leaderboard-rank.second { color: #c0c0c0; }
+        .alltime-leaderboard-rank.third { color: #cd7f32; }
+
+        .alltime-leaderboard-player {
+            flex: 1;
+            margin-left: 10px;
+        }
+
+        .alltime-leaderboard-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 2px;
+        }
+
+        .alltime-leaderboard-stats {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .alltime-leaderboard-score {
+            font-size: 14px;
+            font-weight: 900;
+            color: #ffd700;
+        }
+
+        /* Show all-time leaderboard on desktop only */
+        @media (min-width: 769px) {
+            .alltime-leaderboard {
+                display: block;
+            }
+        }
         
         .kill-message {
             background: rgba(0, 0, 0, 0.9);
@@ -1584,14 +1689,29 @@
             <canvas id="gameCanvas" width="1200" height="900"></canvas>
             
             <div class="hud-overlay">
-                <!-- In-game Leaderboard (desktop only) -->
-                <div class="ingame-leaderboard" id="ingameLeaderboard">
-                    <div class="ingame-leaderboard-title">🏆 DAILY TOP PILLERS</div>
+                <!-- All-Time Top 3 Leaderboard (desktop only) -->
+                <div class="alltime-leaderboard" id="alltimeLeaderboard">
+                    <div class="alltime-leaderboard-title">👑 DAILY TOP 3</div>
                     <div class="daily-countdown" id="dailyCountdown">
                         <div class="countdown-title">⏰ Reset In</div>
                         <div class="countdown-timer" id="countdownTimer">--:--:--</div>
                         <div class="countdown-day" id="countdownDay">Loading...</div>
                     </div>
+                    <div class="alltime-leaderboard-list" id="alltimeLeaderboardList">
+                        <div class="alltime-leaderboard-item">
+                            <div class="alltime-leaderboard-rank">-</div>
+                            <div class="alltime-leaderboard-player">
+                                <div class="alltime-leaderboard-name">No legends yet</div>
+                                <div class="alltime-leaderboard-stats">Be the first to make history!</div>
+                            </div>
+                            <div class="alltime-leaderboard-score">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- In-game Leaderboard (desktop only) -->
+                <div class="ingame-leaderboard" id="ingameLeaderboard">
+                    <div class="ingame-leaderboard-title">🏆 TOP PILLERS RIGHT NOW</div>
                     <div class="ingame-leaderboard-list" id="ingameLeaderboardList">
                         <div class="ingame-leaderboard-item">
                             <div class="ingame-leaderboard-rank">-</div>
@@ -1943,9 +2063,14 @@
                         gameState.playerCount = state.playerCount;
                         gameState.pills = state.pills || {};
                         
-                        // Initialize daily leaderboard
+                        // Initialize daily leaderboard for "TOP PILLERS RIGHT NOW"
                         if (state.dailyLeaderboard) {
                             updateDailyLeaderboard(state.dailyLeaderboard);
+                        }
+                        
+                        // Initialize daily top 3 leaderboard (right side)
+                        if (state.dailyLeaderboard) {
+                            updateAllTimeLeaderboard(state.dailyLeaderboard);
                         }
                         
                         // Ensure myPlayer is also in the players collection and they're the same object
@@ -2072,8 +2197,15 @@
 
                 // Pill events
                 socket.on('pillSpawned', (pill) => {
+                    // Add spawn animation data
+                    pill.spawnTime = Date.now();
+                    pill.isNewSpawn = true;
                     gameState.pills[pill.id] = pill;
-                    console.log('💊 Pill spawned:', pill);
+                    
+                    // Create spawn effect
+                    createPillSpawnEffect(pill.x, pill.y);
+                    
+                    console.log('💊 Pill spawned with animation:', pill);
                 });
 
                 socket.on('pillCollected', (data) => {
@@ -2100,17 +2232,21 @@
                     }
                     
                     updateHUD();
+                    updateStats(); // Update score display
                     updateLeaderboard();
                 });
 
                 // Daily leaderboard events
                 socket.on('dailyLeaderboardUpdate', (data) => {
                     updateDailyLeaderboard(data);
+                    // Also update the daily top 3 section (right side)
+                    updateAllTimeLeaderboard(data);
                 });
 
                 socket.on('dailyLeaderboardReset', (data) => {
                     console.log('🔄 Daily leaderboard reset!');
                     updateDailyLeaderboard(data);
+                    // Note: All-time leaderboard is not affected by daily reset
                     // Show notification to players
                     showNotification('🆕 Daily leaderboard has been reset!');
                 });
@@ -2172,10 +2308,7 @@
                 }
             }
 
-            // Debug movement input
-            if (dx !== 0 || dy !== 0) {
-                console.log('🎮 Movement input detected:', { dx, dy, playerPos: { x: gameState.myPlayer?.x, y: gameState.myPlayer?.y } });
-            }
+            // Movement input detected (debug logging removed for performance)
 
             // If there's movement input
             if (dx !== 0 || dy !== 0) {
@@ -2277,10 +2410,6 @@
             }
             
             // Draw all pills
-            const pillCount = Object.keys(gameState.pills).length;
-            if (pillCount > 0) {
-                console.log(`🎨 Drawing ${pillCount} pills:`, gameState.pills);
-            }
             for (const pillId in gameState.pills) {
                 const pill = gameState.pills[pillId];
                 if (pill) {
@@ -2296,7 +2425,6 @@
                     drawPlayer(player);
                     if (playerId === gameState.myId) {
                         myPlayerDrawn = true;
-                        console.log('🎨 Drawing my player from players collection at:', { x: player.x, y: player.y });
                     }
                 }
             }
@@ -2631,6 +2759,9 @@
             }
             
             document.getElementById('playersCount').textContent = `${gameState.playerCount} Player${gameState.playerCount !== 1 ? 's' : ''}`;
+            
+            // Also update stats (including score) whenever HUD is updated
+            updateStats();
         }
         
         function updateStats() {
@@ -2738,15 +2869,33 @@
             const rotationAngle = time * 0.5 + pill.x * 0.001;
             const pulseScale = 1 + Math.sin(time * 2 + pill.y * 0.01) * 0.1;
             
+            // Spawn animation
+            let spawnScale = 1;
+            let spawnAlpha = 0.9;
+            if (pill.isNewSpawn && pill.spawnTime) {
+                const spawnAge = Date.now() - pill.spawnTime;
+                const spawnDuration = 500; // 0.5 seconds spawn animation
+                
+                if (spawnAge < spawnDuration) {
+                    const progress = spawnAge / spawnDuration;
+                    // Bounce-in effect
+                    spawnScale = 0.2 + (1.8 * Math.sin(progress * Math.PI * 0.5));
+                    spawnAlpha = progress;
+                } else {
+                    // Animation finished, remove flag
+                    pill.isNewSpawn = false;
+                }
+            }
+            
             // Move to pill position
             ctx.translate(pill.x, pill.y + floatOffset);
             ctx.rotate(rotationAngle);
-            ctx.scale(pulseScale, pulseScale);
+            ctx.scale(pulseScale * spawnScale, pulseScale * spawnScale);
             
             // Add outer glow effect
             ctx.shadowColor = '#8a2be2';
             ctx.shadowBlur = 15;
-            ctx.globalAlpha = 0.9;
+            ctx.globalAlpha = spawnAlpha;
             
             // Draw pill using the pill.png image (50% bigger)
             if (pillSprite && pillSprite.complete && pillSprite.naturalHeight !== 0) {
@@ -3062,6 +3211,47 @@
             hitEffects = hitEffects.filter(effect => effect.life > 0);
         }
         
+        // Pill spawn effect
+        function createPillSpawnEffect(x, y) {
+            // Create sparkle particles around spawn point
+            for (let i = 0; i < 8; i++) {
+                const angle = (i / 8) * Math.PI * 2;
+                const distance = 30 + Math.random() * 20;
+                const particleX = x + Math.cos(angle) * distance;
+                const particleY = y + Math.sin(angle) * distance;
+                
+                pillParticles.push({
+                    x: particleX,
+                    y: particleY,
+                    vx: Math.cos(angle) * 2,
+                    vy: Math.sin(angle) * 2,
+                    life: 30,
+                    maxLife: 30,
+                    size: 3 + Math.random() * 2,
+                    color: '#8a2be2',
+                    isText: false
+                });
+            }
+            
+            // Create central burst effect
+            for (let i = 0; i < 12; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = 1 + Math.random() * 3;
+                
+                pillParticles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    life: 20,
+                    maxLife: 20,
+                    size: 2 + Math.random() * 3,
+                    color: '#32cd32',
+                    isText: false
+                });
+            }
+        }
+
         function drawPillParticles() {
             pillParticles.forEach(particle => {
                 const alpha = particle.life / particle.maxLife;
@@ -3390,8 +3580,8 @@
             if (now - lastLeaderboardUpdate < 100) return;
             lastLeaderboardUpdate = now;
             
-            // Collect all currently connected players with their stats
-            const connectedPlayers = Object.values(gameState.players)
+            // Collect only currently connected players for "TOP PILLERS RIGHT NOW"
+            leaderboardData = Object.values(gameState.players)
                 .filter(player => player && player.name)
                 .map(player => ({
                     id: player.id,
@@ -3400,25 +3590,9 @@
                     health: player.health || 0,
                     maxHealth: player.maxHealth || 100,
                     isConnected: true
-                }));
-            
-            // Also include daily leaderboard scores (including disconnected players)
-            const dailyScores = gameState.dailyLeaderboard?.topScores || [];
-            const disconnectedPlayers = dailyScores
-                .filter(entry => !connectedPlayers.find(p => p.name === entry.name))
-                .map(entry => ({
-                    id: `disconnected_${entry.name}`,
-                    name: entry.name,
-                    score: entry.score || 0,
-                    health: 0,
-                    maxHealth: 100,
-                    isConnected: false
-                }));
-            
-            // Combine connected and disconnected players, sort by score
-            leaderboardData = [...connectedPlayers, ...disconnectedPlayers]
+                }))
                 .sort((a, b) => b.score - a.score) // Sort by score descending
-                .slice(0, 3); // Take top 3
+                .slice(0, 10); // Show top 10 connected players
             
             updateLeaderboardDisplay();
         }
@@ -3542,70 +3716,16 @@
                 }
             }
             
-            // Update daily leaderboard display
+            // Store daily leaderboard data for use by other functions
             if (data.topScores && Array.isArray(data.topScores)) {
-                updateDailyLeaderboardDisplay(data.topScores);
+                gameState.dailyLeaderboard = data;
             }
         }
 
         function updateDailyLeaderboardDisplay(topScores) {
-            const ingameLeaderboardList = document.getElementById('ingameLeaderboardList');
-            if (!ingameLeaderboardList) return;
-            
-            ingameLeaderboardList.innerHTML = '';
-            
-            if (topScores.length === 0) {
-                ingameLeaderboardList.innerHTML = `
-                    <div class="ingame-leaderboard-item">
-                        <div class="ingame-leaderboard-rank">-</div>
-                        <div class="ingame-leaderboard-player">
-                            <div class="ingame-leaderboard-name">No daily scores yet</div>
-                            <div class="ingame-leaderboard-stats">Be the first to collect pills!</div>
-                        </div>
-                        <div class="ingame-leaderboard-kills">0</div>
-                    </div>
-                `;
-            } else {
-                topScores.slice(0, 10).forEach((entry, index) => {
-                    const rank = index + 1;
-                    const rankClass = rank === 1 ? 'first' : rank === 2 ? 'second' : rank === 3 ? 'third' : '';
-                    const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
-                    
-                    // Check if this is the current player
-                    const isMyPlayer = gameState.myPlayer && gameState.myPlayer.name === entry.name;
-                    
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = `ingame-leaderboard-item ${rankClass}`;
-                    if (isMyPlayer) {
-                        itemDiv.style.background = 'rgba(138, 43, 226, 0.15)';
-                        itemDiv.style.borderLeftColor = '#8a2be2';
-                    }
-                    
-                    // Format timestamp with real-time updates
-                    const timeAgo = getTimeAgo(entry.timestamp);
-                    const timeStatsElement = document.createElement('div');
-                    timeStatsElement.className = 'ingame-leaderboard-stats';
-                    timeStatsElement.textContent = timeAgo;
-                    timeStatsElement.dataset.timestamp = entry.timestamp;
-                    
-                    itemDiv.innerHTML = `
-                        <div class="ingame-leaderboard-rank ${rankClass}">${rankIcon}</div>
-                        <div class="ingame-leaderboard-player">
-                            <div class="ingame-leaderboard-name">${entry.name}${isMyPlayer ? ' (You)' : ''}</div>
-                        </div>
-                        <div class="ingame-leaderboard-kills">${entry.score}</div>
-                    `;
-                    
-                    // Insert the time stats element
-                    const playerDiv = itemDiv.querySelector('.ingame-leaderboard-player');
-                    playerDiv.appendChild(timeStatsElement);
-                    
-                    ingameLeaderboardList.appendChild(itemDiv);
-                });
-                
-                // Start updating time ago displays if not already running
-                startTimeAgoUpdates();
-            }
+            // This function should update the "DAILY TOP 3" section (right side)
+            // which uses alltimeLeaderboardList, not ingameLeaderboardList
+            updateAllTimeLeaderboardDisplay(topScores.slice(0, 3)); // Only show top 3 for daily
         }
 
         // Real-time "time ago" updates
@@ -3623,6 +3743,69 @@
                     }
                 });
             }, 30000); // Update every 30 seconds
+        }
+
+        // Daily Top 3 leaderboard functions (renamed from all-time)
+        function updateAllTimeLeaderboard(data) {
+            if (!data) return;
+            
+            console.log('👑 Updating daily top 3 leaderboard:', data);
+            
+            // Update daily top 3 leaderboard display
+            if (data.topScores && Array.isArray(data.topScores)) {
+                updateAllTimeLeaderboardDisplay(data.topScores.slice(0, 3)); // Only show top 3
+            }
+        }
+
+        function updateAllTimeLeaderboardDisplay(topScores) {
+            const alltimeLeaderboardList = document.getElementById('alltimeLeaderboardList');
+            if (!alltimeLeaderboardList) return;
+            
+            alltimeLeaderboardList.innerHTML = '';
+            
+            if (topScores.length === 0) {
+                alltimeLeaderboardList.innerHTML = `
+                    <div class="alltime-leaderboard-item">
+                        <div class="alltime-leaderboard-rank">-</div>
+                        <div class="alltime-leaderboard-player">
+                            <div class="alltime-leaderboard-name">No daily scores yet</div>
+                            <div class="alltime-leaderboard-stats">Be the first to collect pills today!</div>
+                        </div>
+                        <div class="alltime-leaderboard-score">0</div>
+                    </div>
+                `;
+            } else {
+                topScores.slice(0, 3).forEach((entry, index) => {
+                    const rank = index + 1;
+                    const rankClass = rank === 1 ? 'first' : rank === 2 ? 'second' : rank === 3 ? 'third' : '';
+                    const rankIcon = rank === 1 ? '👑' : rank === 2 ? '🥈' : '🥉';
+                    
+                    // Check if this is the current player
+                    const isMyPlayer = gameState.myPlayer && gameState.myPlayer.name === entry.name;
+                    
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = `alltime-leaderboard-item ${rankClass}`;
+                    if (isMyPlayer) {
+                        itemDiv.style.background = 'rgba(255, 215, 0, 0.2)';
+                        itemDiv.style.borderLeftColor = '#ffd700';
+                        itemDiv.style.boxShadow = '0 0 20px rgba(255, 215, 0, 0.4)';
+                    }
+                    
+                    // Format timestamp for daily leaderboard
+                    const timeAgo = entry.timestamp ? getTimeAgo(entry.timestamp) : 'Unknown';
+                    
+                    itemDiv.innerHTML = `
+                        <div class="alltime-leaderboard-rank ${rankClass}">${rankIcon}</div>
+                        <div class="alltime-leaderboard-player">
+                            <div class="alltime-leaderboard-name">${entry.name}${isMyPlayer ? ' (You)' : ''}</div>
+                            <div class="alltime-leaderboard-stats">${timeAgo}</div>
+                        </div>
+                        <div class="alltime-leaderboard-score">${entry.score}</div>
+                    `;
+                    
+                    alltimeLeaderboardList.appendChild(itemDiv);
+                });
+            }
         }
 
         // Local countdown timer variables
@@ -3861,32 +4044,7 @@
             mobileTouch.movement.y = mobileJoystick.deltaY / mobileJoystick.maxDistance;
         }
 
-        function updateLeaderboard() {
-            const now = Date.now();
-            // Update leaderboard every 100ms for responsive updates
-            if (now - lastLeaderboardUpdate < 100) return;
-            lastLeaderboardUpdate = now;
-            
-            // Collect all players with their stats
-            leaderboardData = Object.values(gameState.players)
-                .filter(player => player && player.name)
-                .map(player => ({
-                    id: player.id,
-                    name: player.name,
-                    score: player.score || 0,
-                    health: player.health || 0,
-                    maxHealth: player.maxHealth || 100
-                }))
-                .sort((a, b) => b.score - a.score) // Sort by score descending
-                .slice(0, 3); // Take top 3
-            
-            updateLeaderboardDisplay();
-        }
-
-        // Debug movement input
-        if (dx !== 0 || dy !== 0) {
-            console.log('🎮 Movement input detected:', { dx, dy, playerPos: { x: gameState.myPlayer?.x, y: gameState.myPlayer?.y } });
-        }
+        // Game loop continues here...
 
         // If there's movement input
         if (dx !== 0 || dy !== 0) {
@@ -3995,14 +4153,12 @@
                 drawPlayer(player);
                 if (playerId === gameState.myId) {
                     myPlayerDrawn = true;
-                    console.log('🎨 Drawing my player from players collection at:', { x: player.x, y: player.y });
                 }
             }
         }
         
         // Ensure myPlayer is always drawn (fallback)
         if (!myPlayerDrawn && gameState.myPlayer && gameState.myPlayer.health > 0) {
-            console.log('🎨 Drawing myPlayer as fallback at:', { x: gameState.myPlayer.x, y: gameState.myPlayer.y });
             drawPlayer(gameState.myPlayer);
         }
 

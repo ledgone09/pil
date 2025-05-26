@@ -48,6 +48,7 @@ const gameState = {
 // Persistent storage files
 const PLAYER_SCORES_FILE = 'player_scores.json';
 const DAILY_LEADERBOARD_FILE = 'daily_leaderboard.json';
+const ALL_TIME_LEADERBOARD_FILE = 'all_time_leaderboard.json';
 
 // Player scores storage (persistent across sessions)
 let playerScores = new Map(); // playerId -> {name, score, lastSeen}
@@ -59,6 +60,9 @@ const dailyLeaderboard = {
     resetTime: null,
     timeRemaining: 0
 };
+
+// All-time leaderboard system (top 3 highest scores ever)
+let allTimeLeaderboard = [];
 
 // Load persistent data on startup
 function loadPlayerScores() {
@@ -118,6 +122,65 @@ function saveDailyLeaderboard() {
     } catch (error) {
         console.error('❌ Error saving daily leaderboard:', error);
     }
+}
+
+function loadAllTimeLeaderboard() {
+    try {
+        if (fs.existsSync(ALL_TIME_LEADERBOARD_FILE)) {
+            const data = fs.readFileSync(ALL_TIME_LEADERBOARD_FILE, 'utf8');
+            allTimeLeaderboard = JSON.parse(data);
+            console.log(`🏆 Loaded all-time leaderboard with ${allTimeLeaderboard.length} entries`);
+        }
+    } catch (error) {
+        console.error('❌ Error loading all-time leaderboard:', error);
+        allTimeLeaderboard = [];
+    }
+}
+
+function saveAllTimeLeaderboard() {
+    try {
+        fs.writeFileSync(ALL_TIME_LEADERBOARD_FILE, JSON.stringify(allTimeLeaderboard, null, 2));
+        console.log(`🏆 Saved all-time leaderboard with ${allTimeLeaderboard.length} entries`);
+    } catch (error) {
+        console.error('❌ Error saving all-time leaderboard:', error);
+    }
+}
+
+function updateAllTimeLeaderboard(playerName, score) {
+    // Check if this score qualifies for top 3 all-time
+    const newEntry = {
+        name: playerName,
+        score: score,
+        timestamp: Date.now(),
+        date: new Date().toLocaleDateString()
+    };
+    
+    // Check if player already has a score in all-time leaderboard
+    const existingIndex = allTimeLeaderboard.findIndex(entry => entry.name === playerName);
+    
+    if (existingIndex !== -1) {
+        // Player exists, update if new score is higher
+        if (score > allTimeLeaderboard[existingIndex].score) {
+            allTimeLeaderboard[existingIndex] = newEntry;
+            console.log(`🏆 Updated ${playerName}'s all-time best: ${score} points`);
+        }
+    } else {
+        // New player, add to leaderboard
+        allTimeLeaderboard.push(newEntry);
+        console.log(`🏆 Added ${playerName} to all-time leaderboard: ${score} points`);
+    }
+    
+    // Sort by score (highest first) and keep only top 3
+    allTimeLeaderboard.sort((a, b) => b.score - a.score);
+    allTimeLeaderboard = allTimeLeaderboard.slice(0, 3);
+    
+    // Save to file
+    saveAllTimeLeaderboard();
+    
+    // Broadcast updated all-time leaderboard to all clients
+    io.emit('allTimeLeaderboardUpdate', {
+        topScores: allTimeLeaderboard
+    });
 }
 
 // Initialize daily reset timer
@@ -207,6 +270,7 @@ function updateDailyLeaderboard(playerId, playerName, score) {
 // Load persistent data and initialize the daily reset system
 loadPlayerScores();
 loadDailyLeaderboard();
+loadAllTimeLeaderboard();
 initializeDailyReset();
 
 // Update time remaining every second for real-time countdown
@@ -233,8 +297,8 @@ setInterval(() => {
 }, 30000);
 
 // Pill settings
-const MAX_PILLS = 40; // Doubled the number of pills
-const PILL_SPAWN_INTERVAL = 1000; // 1 second (faster spawning)
+const MAX_PILLS = 40; // Maximum pills on map at once (increased)
+const PILL_SPAWN_INTERVAL = 400; // 0.4 seconds between spawn attempts (much faster)
 const PILL_SIZE = 45; // Increased by 50%
 
 // Game settings
@@ -267,7 +331,10 @@ function getRandomSpawnPoint() {
 }
 
 function generatePill() {
-    if (gameState.pills.size >= MAX_PILLS) return;
+    // Only spawn if we're below the max limit
+    if (gameState.pills.size >= MAX_PILLS) {
+        return;
+    }
     
     const pillId = 'pill_' + Date.now() + '_' + Math.random();
     const spawn = getRandomSpawnPoint();
@@ -276,12 +343,19 @@ function generatePill() {
         id: pillId,
         x: spawn.x,
         y: spawn.y,
-        points: 1 // Consistent 1 point per pill
+        points: 1, // Consistent 1 point per pill
+        spawnTime: Date.now() // Add spawn time for animation
     };
     
     gameState.pills.set(pillId, pill);
-    io.emit('pillSpawned', pill);
-    console.log('Pill spawned:', pill);
+    
+    // Send pill spawn event with animation data
+    io.emit('pillSpawned', {
+        ...pill,
+        animated: true // Flag for client-side animation
+    });
+    
+    console.log(`💊 Pill spawned: ${pillId} (${gameState.pills.size}/${MAX_PILLS} pills on map)`);
 }
 
 function checkPillCollection(playerId, playerX, playerY) {
@@ -314,10 +388,13 @@ function checkPillCollection(playerId, playerX, playerY) {
                 newScore: player.score
             });
             
-            console.log(`Player ${player.name} collected pill for ${pill.points} points. New score: ${player.score}`);
+            console.log(`💊 ${player.name} collected pill (+${pill.points}) → Score: ${player.score}`);
             
             // Update daily leaderboard
             updateDailyLeaderboard(playerId, player.name, player.score);
+            
+            // Update all-time leaderboard
+            updateAllTimeLeaderboard(player.name, player.score);
             break;
         }
     }
@@ -372,6 +449,9 @@ io.on('connection', (socket) => {
                 .slice(0, 10),
             timeRemaining: dailyLeaderboard.timeRemaining,
             currentDay: dailyLeaderboard.currentDay
+        },
+        allTimeLeaderboard: {
+            topScores: allTimeLeaderboard
         }
     };
     
@@ -541,8 +621,8 @@ setInterval(() => {
     generatePill();
 }, PILL_SPAWN_INTERVAL);
 
-// Generate initial pills
-for (let i = 0; i < 15; i++) {
+// Generate initial pills to fill the map
+for (let i = 0; i < MAX_PILLS; i++) {
     generatePill();
 }
 
@@ -551,6 +631,7 @@ function gracefulShutdown() {
     console.log('🔄 Shutting down gracefully...');
     savePlayerScores();
     saveDailyLeaderboard();
+    saveAllTimeLeaderboard();
     console.log('💾 All data saved successfully');
     process.exit(0);
 }
