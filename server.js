@@ -53,6 +53,9 @@ const ALL_TIME_LEADERBOARD_FILE = 'all_time_leaderboard.json';
 // Player scores storage (persistent across sessions)
 let playerScores = new Map(); // playerId -> {name, score, lastSeen}
 
+// Session tokens for legitimate score restoration
+let sessionTokens = new Map(); // token -> {name, score, created}
+
 // Daily leaderboard system
 const dailyLeaderboard = {
     currentDay: new Date().toDateString(),
@@ -143,6 +146,21 @@ function saveAllTimeLeaderboard() {
         console.log(`🏆 Saved all-time leaderboard with ${allTimeLeaderboard.length} entries`);
     } catch (error) {
         console.error('❌ Error saving all-time leaderboard:', error);
+    }
+}
+
+function generateSessionToken() {
+    return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+function cleanupExpiredTokens() {
+    const now = Date.now();
+    const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+    
+    for (const [token, data] of sessionTokens.entries()) {
+        if (now - data.created > TWENTY_FOUR_HOURS) {
+            sessionTokens.delete(token);
+        }
     }
 }
 
@@ -296,9 +314,14 @@ setInterval(() => {
     }
 }, 30000);
 
+// Cleanup expired session tokens (every hour)
+setInterval(() => {
+    cleanupExpiredTokens();
+}, 60 * 60 * 1000);
+
 // Pill settings
-const MAX_PILLS = 40; // Maximum pills on map at once (increased)
-const PILL_SPAWN_INTERVAL = 400; // 0.4 seconds between spawn attempts (much faster)
+const MAX_PILLS = 60; // Maximum pills on map at once (increased)
+const PILL_SPAWN_INTERVAL = 200; // 0.2 seconds between spawn attempts (very fast)
 const PILL_SIZE = 45; // Increased by 50%
 
 // Game settings
@@ -471,46 +494,65 @@ io.on('connection', (socket) => {
     io.emit('playerCountUpdate', gameState.playerCount);
 
     // Handle username setting
-    socket.on('setUsername', (username) => {
+    socket.on('setUsername', (data) => {
         const player = gameState.players.get(socket.id);
+        let username, sessionToken;
+        
+        // Handle both old format (string) and new format (object)
+        if (typeof data === 'string') {
+            username = data;
+            sessionToken = null;
+        } else {
+            username = data.username;
+            sessionToken = data.sessionToken;
+        }
+        
         if (player && username && username.trim().length > 0) {
             // Validate and sanitize username
             const cleanUsername = username.trim().substring(0, 15);
             player.name = cleanUsername;
             
-            // Restore previous score - check multiple sources
+            // Only restore score from current session or valid session token
             let restoredScore = 0;
+            let sessionTokenUsed = false;
             
-            // 1. First check current session score
-            const playerKey = `${cleanUsername}_${socket.id}`;
-            const savedScore = playerScores.get(playerKey);
-            if (savedScore) {
-                restoredScore = savedScore.score;
-                console.log(`Player ${cleanUsername} restored current session score: ${restoredScore}`);
-            } else {
-                // 2. Check for any previous score with this username (different session)
-                for (const [key, data] of playerScores.entries()) {
-                    if (data.name === cleanUsername) {
-                        restoredScore = Math.max(restoredScore, data.score);
-                    }
-                }
-                
-                // 3. Check daily leaderboard for highest score
-                for (const [playerId, entry] of dailyLeaderboard.topScores.entries()) {
-                    if (entry.name === cleanUsername) {
-                        restoredScore = Math.max(restoredScore, entry.score);
-                    }
-                }
-                
-                if (restoredScore > 0) {
-                    console.log(`Player ${cleanUsername} restored score from previous session/daily leaderboard: ${restoredScore}`);
+            // 1. Check if they have a valid session token
+            if (sessionToken && sessionTokens.has(sessionToken)) {
+                const tokenData = sessionTokens.get(sessionToken);
+                if (tokenData.name === cleanUsername) {
+                    restoredScore = tokenData.score;
+                    sessionTokenUsed = true;
+                    console.log(`Player ${cleanUsername} restored score using session token: ${restoredScore}`);
+                    // Remove the token after use to prevent reuse
+                    sessionTokens.delete(sessionToken);
                 }
             }
             
-            // Set the restored score
+            // 2. If no valid token, check current session
+            if (!sessionTokenUsed) {
+                // Check if this exact socket ID has a saved score with this username
+                const playerKey = `${cleanUsername}_${socket.id}`;
+                const savedScore = playerScores.get(playerKey);
+                if (savedScore) {
+                    restoredScore = savedScore.score;
+                    console.log(`Player ${cleanUsername} restored their own session score: ${restoredScore}`);
+                } else {
+                    // Check if this socket ID had a score with a different username in this session
+                    for (const [key, data] of playerScores.entries()) {
+                        if (key.endsWith(`_${socket.id}`)) {
+                            restoredScore = data.score;
+                            console.log(`Player ${cleanUsername} restored score from same session with different name: ${restoredScore}`);
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            // Set the restored score (starts at 0 for new players/sessions)
             player.score = restoredScore;
             
             // Update current session record
+            const playerKey = `${cleanUsername}_${socket.id}`;
             playerScores.set(playerKey, {
                 name: cleanUsername,
                 score: player.score,
@@ -606,6 +648,23 @@ io.on('connection', (socket) => {
             if (player && player.name && player.score > 0) {
                 updateDailyLeaderboard(socket.id, player.name, player.score);
                 console.log(`💾 Saved disconnecting player ${player.name}'s score: ${player.score}`);
+                
+                // Generate session token for score restoration
+                const sessionToken = generateSessionToken();
+                sessionTokens.set(sessionToken, {
+                    name: player.name,
+                    score: player.score,
+                    created: Date.now()
+                });
+                
+                // Send session token to client before they disconnect (if still connected)
+                socket.emit('sessionToken', {
+                    token: sessionToken,
+                    name: player.name,
+                    score: player.score
+                });
+                
+                console.log(`🎫 Generated session token for ${player.name} (score: ${player.score})`);
             }
             
             io.emit('playerLeft', socket.id);

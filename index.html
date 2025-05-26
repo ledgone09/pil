@@ -1493,6 +1493,11 @@
             opacity: 1;
         }
 
+        /* Hide mobile daily leaderboard on desktop */
+        .mobile-daily-leaderboard {
+            display: none;
+        }
+
         /* Mobile optimizations for contract section */
         @media (max-width: 768px) {
             .contract-section {
@@ -1534,6 +1539,95 @@
             .copy-button:active {
                 transform: scale(0.98);
                 background: linear-gradient(135deg, #9370db, #8a2be2);
+            }
+
+            /* Mobile Daily Top 3 Leaderboard */
+            .mobile-daily-leaderboard {
+                display: block;
+                padding: 8px;
+                margin: 0 10px 8px 10px;
+                border-radius: 8px;
+                flex-shrink: 0;
+                width: calc(100% - 20px);
+                box-sizing: border-box;
+                background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 140, 0, 0.05));
+                border: 2px solid rgba(255, 215, 0, 0.3);
+                backdrop-filter: blur(10px);
+                box-shadow: 0 4px 16px rgba(255, 215, 0, 0.2);
+            }
+
+            .mobile-daily-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 6px;
+            }
+
+            .mobile-daily-title {
+                font-size: 12px;
+                font-weight: 900;
+                color: #ffd700;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            }
+
+            .mobile-daily-countdown {
+                font-size: 10px;
+                font-weight: 700;
+                color: #ff8c00;
+                background: rgba(0, 0, 0, 0.3);
+                padding: 2px 6px;
+                border-radius: 4px;
+                border: 1px solid rgba(255, 140, 0, 0.3);
+            }
+
+            .mobile-daily-list {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+
+            .mobile-daily-item {
+                display: flex;
+                align-items: center;
+                padding: 4px 6px;
+                background: rgba(0, 0, 0, 0.4);
+                border-radius: 4px;
+                border: 1px solid rgba(255, 215, 0, 0.2);
+            }
+
+            .mobile-daily-rank {
+                width: 20px;
+                height: 20px;
+                background: linear-gradient(135deg, #ffd700, #ff8c00);
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 10px;
+                font-weight: 900;
+                color: #000;
+                margin-right: 8px;
+                flex-shrink: 0;
+            }
+
+            .mobile-daily-name {
+                flex: 1;
+                font-size: 10px;
+                font-weight: 700;
+                color: #ffd700;
+                text-overflow: ellipsis;
+                overflow: hidden;
+                white-space: nowrap;
+            }
+
+            .mobile-daily-score {
+                font-size: 10px;
+                font-weight: 900;
+                color: #ff8c00;
+                margin-left: 8px;
+                flex-shrink: 0;
             }
         }
 
@@ -1650,6 +1744,31 @@
                         <div class="leaderboard-stats">Waiting for pill collectors...</div>
                     </div>
                     <div class="leaderboard-kills">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mobile Daily Top 3 Leaderboard -->
+        <div class="mobile-daily-leaderboard" id="mobileDailyLeaderboard">
+            <div class="mobile-daily-header">
+                <div class="mobile-daily-title">👑 DAILY TOP 3</div>
+                <div class="mobile-daily-countdown" id="mobileDailyCountdown">⏰ --:--:--</div>
+            </div>
+            <div class="mobile-daily-list" id="mobileDailyList">
+                <div class="mobile-daily-item">
+                    <div class="mobile-daily-rank">1</div>
+                    <div class="mobile-daily-name">No legends yet</div>
+                    <div class="mobile-daily-score">0</div>
+                </div>
+                <div class="mobile-daily-item">
+                    <div class="mobile-daily-rank">2</div>
+                    <div class="mobile-daily-name">-</div>
+                    <div class="mobile-daily-score">0</div>
+                </div>
+                <div class="mobile-daily-item">
+                    <div class="mobile-daily-rank">3</div>
+                    <div class="mobile-daily-name">-</div>
+                    <div class="mobile-daily-score">0</div>
                 </div>
             </div>
         </div>
@@ -1788,9 +1907,20 @@
     <script>
         // Game variables
         const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d', { alpha: false });
+        const ctx = canvas.getContext('2d', { 
+            alpha: false,
+            desynchronized: true, // Better performance
+            powerPreference: 'high-performance' // Use dedicated GPU if available
+        });
         let gameLoopStarted = false;
         let lastFrameTime = 0;
+        const TARGET_FPS = 60;
+        const FRAME_TIME = 1000 / TARGET_FPS;
+        
+        // Performance monitoring
+        let frameCount = 0;
+        let lastFpsUpdate = 0;
+        let currentFps = 0;
         
         // Missing constants and variables
         const PLAYER_SIZE = 100;
@@ -1885,6 +2015,7 @@
         // Leaderboard
         let leaderboardData = [];
         let lastLeaderboardUpdate = 0;
+        let lastLeaderboardRender = 0;
         
         // Input handling
         const keys = {};
@@ -2023,7 +2154,24 @@
                     
                     // Send username to server
                     if (playerUsername) {
-                        socket.emit('setUsername', playerUsername);
+                        // Check for session token in localStorage
+                        const sessionToken = localStorage.getItem('sessionToken');
+                        const tokenUsername = localStorage.getItem('tokenUsername');
+                        
+                        // Send username with session token if available and matches
+                        if (sessionToken && tokenUsername === playerUsername) {
+                            socket.emit('setUsername', {
+                                username: playerUsername,
+                                sessionToken: sessionToken
+                            });
+                            // Clear the token after use
+                            localStorage.removeItem('sessionToken');
+                            localStorage.removeItem('tokenUsername');
+                            localStorage.removeItem('tokenScore');
+                            console.log('🎫 Using session token for score restoration');
+                        } else {
+                            socket.emit('setUsername', playerUsername);
+                        }
                     }
                 });
                 
@@ -2033,6 +2181,18 @@
                     // Initialize offline mode if disconnected
                     if (!gameState.myPlayer) {
                         initOfflineMode();
+                    }
+                });
+                
+                socket.on('sessionToken', (data) => {
+                    // Store session token for score restoration on reconnect
+                    try {
+                        localStorage.setItem('sessionToken', data.token);
+                        localStorage.setItem('tokenUsername', data.name);
+                        localStorage.setItem('tokenScore', data.score.toString());
+                        console.log(`🎫 Received session token for ${data.name} (score: ${data.score})`);
+                    } catch (e) {
+                        console.warn('Could not save session token to localStorage:', e);
                     }
                 });
                 
@@ -2263,12 +2423,16 @@
 
         function gameLoop(timestamp) {
             if (!gameState.myPlayer) {
-                console.log('No player data, waiting...');
                 requestAnimationFrame(gameLoop);
                 return;
             }
 
+            // Frame rate limiting for consistent performance
             const deltaTime = Math.min(timestamp - lastFrameTime, 50);
+            if (deltaTime < FRAME_TIME) {
+                requestAnimationFrame(gameLoop);
+                return;
+            }
             lastFrameTime = timestamp;
 
             // Handle movement
@@ -2377,6 +2541,9 @@
 
             // Clear and render with camera translation
             ctx.save();
+            
+            // Use clearRect for better performance than fillRect
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
@@ -2384,9 +2551,11 @@
 
             drawGrid();
             
-            // Update interpolated positions for other players
+            // Update interpolated positions for other players (optimized)
             const now2 = Date.now();
-            for (const playerId in playerInterpolationData) {
+            const interpolationKeys = Object.keys(playerInterpolationData);
+            for (let i = 0; i < interpolationKeys.length; i++) {
+                const playerId = interpolationKeys[i];
                 const interpData = playerInterpolationData[playerId];
                 const player = gameState.players[playerId];
                 
@@ -2396,10 +2565,11 @@
                     
                     if (elapsed < duration) {
                         const progress = elapsed / duration;
-                        const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+                        // Simplified easing for better performance
+                        const ease = progress * progress * (3 - 2 * progress); // smoothstep
                         
-                        player.x = interpData.startX + (interpData.targetX - interpData.startX) * easeOutCubic;
-                        player.y = interpData.startY + (interpData.targetY - interpData.startY) * easeOutCubic;
+                        player.x = interpData.startX + (interpData.targetX - interpData.startX) * ease;
+                        player.y = interpData.startY + (interpData.targetY - interpData.startY) * ease;
                     } else {
                         // Interpolation complete, snap to target
                         player.x = interpData.targetX;
@@ -2409,17 +2579,20 @@
                 }
             }
             
-            // Draw all pills
-            for (const pillId in gameState.pills) {
-                const pill = gameState.pills[pillId];
+            // Draw all pills (optimized loop)
+            const pillIds = Object.keys(gameState.pills);
+            for (let i = 0; i < pillIds.length; i++) {
+                const pill = gameState.pills[pillIds[i]];
                 if (pill) {
                     drawPill(pill);
                 }
             }
 
-            // Draw all players
+            // Draw all players (optimized loop)
             let myPlayerDrawn = false;
-            for (const playerId in gameState.players) {
+            const playerIds = Object.keys(gameState.players);
+            for (let i = 0; i < playerIds.length; i++) {
+                const playerId = playerIds[i];
                 const player = gameState.players[playerId];
                 if (player && player.health > 0) {
                     drawPlayer(player);
@@ -2431,7 +2604,6 @@
             
             // Ensure myPlayer is always drawn (fallback)
             if (!myPlayerDrawn && gameState.myPlayer && gameState.myPlayer.health > 0) {
-                console.log('🎨 Drawing myPlayer as fallback at:', { x: gameState.myPlayer.x, y: gameState.myPlayer.y });
                 drawPlayer(gameState.myPlayer);
             }
 
@@ -2446,8 +2618,25 @@
             
             drawCrosshair();
 
-            // Update leaderboard periodically
-            updateLeaderboard();
+            // Update leaderboard periodically (throttled for performance)
+            const now3 = Date.now();
+            if (now3 - lastLeaderboardUpdate > 1000) { // Only update every 1 second
+                updateLeaderboard();
+                lastLeaderboardUpdate = now3;
+            }
+
+            // Performance monitoring
+            frameCount++;
+            if (now3 - lastFpsUpdate > 1000) {
+                currentFps = frameCount;
+                frameCount = 0;
+                lastFpsUpdate = now3;
+                
+                // Log performance warning if FPS is low
+                if (currentFps < 30) {
+                    console.warn(`⚠️ Low FPS detected: ${currentFps} FPS`);
+                }
+            }
 
             requestAnimationFrame(gameLoop);
         }
@@ -2696,18 +2885,18 @@
         }
         
         function createPillCollectionEffect(x, y, points) {
-            // Create sparkle particles
-            for (let i = 0; i < 12; i++) {
-                const angle = (Math.PI * 2 * i) / 12;
-                const speed = 2 + Math.random() * 3;
+            // Reduced particle count for better performance
+            for (let i = 0; i < 6; i++) { // Reduced from 12 to 6
+                const angle = (Math.PI * 2 * i) / 6;
+                const speed = 2 + Math.random() * 2; // Reduced speed variation
                 pillParticles.push({
                     x: x,
                     y: y,
                     vx: Math.cos(angle) * speed,
                     vy: Math.sin(angle) * speed,
-                    life: 30,
-                    maxLife: 30,
-                    size: 2 + Math.random() * 3,
+                    life: 20, // Reduced lifetime
+                    maxLife: 20,
+                    size: 2 + Math.random() * 2, // Reduced size variation
                     color: Math.random() > 0.5 ? '#8a2be2' : '#32cd32'
                 });
             }
@@ -2831,6 +3020,11 @@
         }
         
         function updateVisualEffects() {
+            // Limit particle count for performance
+            if (pillParticles.length > 100) {
+                pillParticles.splice(0, pillParticles.length - 100);
+            }
+            
             // Update hit effects
             for (let i = hitEffects.length - 1; i >= 0; i--) {
                 const effect = hitEffects[i];
@@ -2863,11 +3057,11 @@
         function drawPill(pill) {
             ctx.save();
             
-            // Enhanced floating animation with rotation and pulsing
-            const time = Date.now() * 0.004;
-            const floatOffset = Math.sin(time + pill.x * 0.01) * 4;
-            const rotationAngle = time * 0.5 + pill.x * 0.001;
-            const pulseScale = 1 + Math.sin(time * 2 + pill.y * 0.01) * 0.1;
+            // Simplified animation for better performance
+            const time = Date.now() * 0.002; // Reduced frequency
+            const floatOffset = Math.sin(time + pill.x * 0.005) * 3; // Reduced amplitude
+            const rotationAngle = time * 0.3 + pill.x * 0.0005; // Reduced rotation speed
+            const pulseScale = 1 + Math.sin(time + pill.y * 0.005) * 0.05; // Reduced pulse
             
             // Spawn animation
             let spawnScale = 1;
@@ -2892,9 +3086,9 @@
             ctx.rotate(rotationAngle);
             ctx.scale(pulseScale * spawnScale, pulseScale * spawnScale);
             
-            // Add outer glow effect
+            // Simplified glow effect for performance
             ctx.shadowColor = '#8a2be2';
-            ctx.shadowBlur = 15;
+            ctx.shadowBlur = 8; // Reduced blur for performance
             ctx.globalAlpha = spawnAlpha;
             
             // Draw pill using the pill.png image (50% bigger)
@@ -3283,35 +3477,49 @@
             });
         }
         
+        // Grid drawing optimization - cache grid lines
+        let gridCache = null;
+        let lastGridCameraX = -1;
+        let lastGridCameraY = -1;
+        
         function drawGrid() {
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
-            ctx.lineWidth = 1;
+            // Only redraw grid if camera moved significantly
+            const cameraX = Math.floor(camera.x / 50) * 50;
+            const cameraY = Math.floor(camera.y / 50) * 50;
             
-            const gridSize = 100;
-            
-            // Calculate visible grid boundaries based on camera position
-            const startX = Math.floor(camera.x / gridSize) * gridSize;
-            const endX = startX + CANVAS_WIDTH + gridSize;
-            const startY = Math.floor(camera.y / gridSize) * gridSize;
-            const endY = startY + CANVAS_HEIGHT + gridSize;
-            
-            // Draw vertical lines
-            for (let x = startX; x <= endX; x += gridSize) {
-                if (x >= 0 && x <= WORLD_WIDTH) {
-                    ctx.beginPath();
-                    ctx.moveTo(x, Math.max(0, camera.y));
-                    ctx.lineTo(x, Math.min(WORLD_HEIGHT, camera.y + CANVAS_HEIGHT));
-                    ctx.stroke();
+            if (cameraX !== lastGridCameraX || cameraY !== lastGridCameraY) {
+                lastGridCameraX = cameraX;
+                lastGridCameraY = cameraY;
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                ctx.lineWidth = 1;
+                
+                const gridSize = 100;
+                
+                // Calculate visible grid boundaries based on camera position
+                const startX = Math.floor(camera.x / gridSize) * gridSize;
+                const endX = startX + CANVAS_WIDTH + gridSize;
+                const startY = Math.floor(camera.y / gridSize) * gridSize;
+                const endY = startY + CANVAS_HEIGHT + gridSize;
+                
+                // Draw vertical lines
+                for (let x = startX; x <= endX; x += gridSize) {
+                    if (x >= 0 && x <= WORLD_WIDTH) {
+                        ctx.beginPath();
+                        ctx.moveTo(x, Math.max(0, camera.y));
+                        ctx.lineTo(x, Math.min(WORLD_HEIGHT, camera.y + CANVAS_HEIGHT));
+                        ctx.stroke();
+                    }
                 }
-            }
-            
-            // Draw horizontal lines
-            for (let y = startY; y <= endY; y += gridSize) {
-                if (y >= 0 && y <= WORLD_HEIGHT) {
-                    ctx.beginPath();
-                    ctx.moveTo(Math.max(0, camera.x), y);
-                    ctx.lineTo(Math.min(WORLD_WIDTH, camera.x + CANVAS_WIDTH), y);
-                    ctx.stroke();
+                
+                // Draw horizontal lines
+                for (let y = startY; y <= endY; y += gridSize) {
+                    if (y >= 0 && y <= WORLD_HEIGHT) {
+                        ctx.beginPath();
+                        ctx.moveTo(Math.max(0, camera.x), y);
+                        ctx.lineTo(Math.min(WORLD_WIDTH, camera.x + CANVAS_WIDTH), y);
+                        ctx.stroke();
+                    }
                 }
             }
         }
@@ -3726,6 +3934,52 @@
             // This function should update the "DAILY TOP 3" section (right side)
             // which uses alltimeLeaderboardList, not ingameLeaderboardList
             updateAllTimeLeaderboardDisplay(topScores.slice(0, 3)); // Only show top 3 for daily
+            
+            // Also update mobile daily leaderboard
+            updateMobileDailyLeaderboard(topScores.slice(0, 3));
+        }
+
+        function updateMobileDailyLeaderboard(topScores) {
+            const mobileDailyList = document.getElementById('mobileDailyList');
+            if (!mobileDailyList) return;
+            
+            // Clear existing items
+            mobileDailyList.innerHTML = '';
+            
+            // Create 3 slots (even if empty)
+            for (let i = 0; i < 3; i++) {
+                const rank = i + 1;
+                const entry = topScores[i];
+                const rankIcon = rank === 1 ? '👑' : rank === 2 ? '🥈' : '🥉';
+                
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'mobile-daily-item';
+                
+                if (entry) {
+                    // Check if this is the current player
+                    const isMyPlayer = gameState.myPlayer && gameState.myPlayer.name === entry.name;
+                    
+                    if (isMyPlayer) {
+                        itemDiv.style.background = 'rgba(255, 215, 0, 0.3)';
+                        itemDiv.style.borderColor = '#ffd700';
+                    }
+                    
+                    itemDiv.innerHTML = `
+                        <div class="mobile-daily-rank">${rankIcon}</div>
+                        <div class="mobile-daily-name">${entry.name}${isMyPlayer ? ' (You)' : ''}</div>
+                        <div class="mobile-daily-score">${entry.score}</div>
+                    `;
+                } else {
+                    // Empty slot
+                    itemDiv.innerHTML = `
+                        <div class="mobile-daily-rank">${rank}</div>
+                        <div class="mobile-daily-name">-</div>
+                        <div class="mobile-daily-score">0</div>
+                    `;
+                }
+                
+                mobileDailyList.appendChild(itemDiv);
+            }
         }
 
         // Real-time "time ago" updates
@@ -3861,19 +4115,34 @@
 
         function displayCountdownTime(timeRemaining) {
             const timerElement = document.getElementById('countdownTimer');
-            if (!timerElement) return;
+            const mobileTimerElement = document.getElementById('mobileDailyCountdown');
             
-            if (timeRemaining <= 0) {
-                timerElement.textContent = '00:00:00';
-                return;
+            let formattedTime = '00:00:00';
+            
+            if (timeRemaining > 0) {
+                const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+                const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+                
+                formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
             }
             
-            const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
-            const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((timeRemaining % (1000 * 60)) / 1000);
+            // Update desktop timer
+            if (timerElement) {
+                timerElement.textContent = formattedTime;
+            }
             
-            const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-            timerElement.textContent = formattedTime;
+            // Update mobile timer (shorter format)
+            if (mobileTimerElement) {
+                const hours = Math.floor(timeRemaining / (1000 * 60 * 60));
+                const minutes = Math.floor((timeRemaining % (1000 * 60 * 60)) / (1000 * 60));
+                
+                if (hours > 0) {
+                    mobileTimerElement.textContent = `⏰ ${hours}h ${minutes}m`;
+                } else {
+                    mobileTimerElement.textContent = `⏰ ${minutes}m`;
+                }
+            }
         }
 
         function getTimeAgo(timestamp) {
