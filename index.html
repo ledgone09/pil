@@ -2228,9 +2228,13 @@
                             updateDailyLeaderboard(state.dailyLeaderboard);
                         }
                         
-                        // Initialize daily top 3 leaderboard (right side)
+                        // Initialize daily top 3 leaderboard (right side and mobile)
                         if (state.dailyLeaderboard) {
                             updateAllTimeLeaderboard(state.dailyLeaderboard);
+                            // Ensure mobile daily leaderboard is also initialized
+                            if (state.dailyLeaderboard.topScores) {
+                                updateMobileDailyLeaderboard(state.dailyLeaderboard.topScores.slice(0, 3));
+                            }
                         }
                         
                         // Ensure myPlayer is also in the players collection and they're the same object
@@ -2250,6 +2254,12 @@
                         }
                         updateHUD();
                         updateLeaderboard();
+                        
+                        // Force update mobile daily leaderboard on game state received
+                        if (state.dailyLeaderboard && state.dailyLeaderboard.topScores) {
+                            console.log('🔄 Force updating mobile daily leaderboard on game state');
+                            updateMobileDailyLeaderboard(state.dailyLeaderboard.topScores.slice(0, 3));
+                        }
                     }
                 });
                 
@@ -2399,8 +2409,12 @@
                 // Daily leaderboard events
                 socket.on('dailyLeaderboardUpdate', (data) => {
                     updateDailyLeaderboard(data);
-                    // Also update the daily top 3 section (right side)
+                    // Also update the daily top 3 section (right side and mobile)
                     updateAllTimeLeaderboard(data);
+                    // Explicitly update mobile daily leaderboard
+                    if (data.topScores) {
+                        updateMobileDailyLeaderboard(data.topScores.slice(0, 3));
+                    }
                 });
 
                 socket.on('dailyLeaderboardReset', (data) => {
@@ -3559,6 +3573,9 @@
             initMobileCanvas();
             initMobileControls();
             
+            // Initialize mobile daily leaderboard with empty state
+            updateMobileDailyLeaderboard([]);
+            
             // Fallback: if no connection after username is submitted, start offline mode
             setTimeout(() => {
                 if (usernameSubmitted && (!socket || !socket.connected)) {
@@ -3914,6 +3931,8 @@
             // This prevents timer reset when collecting pills
             if (data.timeRemaining !== undefined) {
                 updateCountdownTimer(data.timeRemaining);
+                // Also update mobile countdown
+                updateMobileCountdownTimer(data.timeRemaining);
             }
             
             // Update day display
@@ -3927,6 +3946,8 @@
             // Store daily leaderboard data for use by other functions
             if (data.topScores && Array.isArray(data.topScores)) {
                 gameState.dailyLeaderboard = data;
+                // Update mobile daily leaderboard when data changes
+                updateMobileDailyLeaderboard(data.topScores.slice(0, 3));
             }
         }
 
@@ -3941,7 +3962,12 @@
 
         function updateMobileDailyLeaderboard(topScores) {
             const mobileDailyList = document.getElementById('mobileDailyList');
-            if (!mobileDailyList) return;
+            if (!mobileDailyList) {
+                console.warn('📱 Mobile daily list element not found');
+                return;
+            }
+            
+            console.log('📱 Updating mobile daily leaderboard with:', topScores);
             
             // Clear existing items
             mobileDailyList.innerHTML = '';
@@ -3969,6 +3995,8 @@
                         <div class="mobile-daily-name">${entry.name}${isMyPlayer ? ' (You)' : ''}</div>
                         <div class="mobile-daily-score">${entry.score}</div>
                     `;
+                    
+                    console.log(`📱 Added mobile daily entry ${rank}: ${entry.name} - ${entry.score}`);
                 } else {
                     // Empty slot
                     itemDiv.innerHTML = `
@@ -4008,6 +4036,8 @@
             // Update daily top 3 leaderboard display
             if (data.topScores && Array.isArray(data.topScores)) {
                 updateAllTimeLeaderboardDisplay(data.topScores.slice(0, 3)); // Only show top 3
+                // Also update mobile daily leaderboard
+                updateMobileDailyLeaderboard(data.topScores.slice(0, 3));
             }
         }
 
