@@ -1912,6 +1912,21 @@
             desynchronized: true, // Better performance
             powerPreference: 'high-performance' // Use dedicated GPU if available
         });
+        
+        // Debug canvas initialization
+        console.log('🎨 Canvas initialized:', {
+            canvas: !!canvas,
+            ctx: !!ctx,
+            width: canvas ? canvas.width : 'N/A',
+            height: canvas ? canvas.height : 'N/A'
+        });
+        
+        // Ensure canvas is visible and properly sized
+        if (canvas && ctx) {
+            canvas.style.display = 'block';
+            canvas.style.background = '#0a0a0a';
+            console.log('🎨 Canvas style set');
+        }
         let gameLoopStarted = false;
         let lastFrameTime = 0;
         const TARGET_FPS = 60;
@@ -2105,9 +2120,24 @@
             
             hideUsernameModal();
             
+            // Start game loop immediately after username submission
+            if (!gameLoopStarted) {
+                console.log('🎮 Starting game loop after username submission');
+                gameLoopStarted = true;
+                requestAnimationFrame(gameLoop);
+            }
+            
             // Now connect to server with username
             console.log('Username submitted:', playerUsername);
             connectToServer();
+            
+            // If no server connection after 2 seconds, start offline mode
+            setTimeout(() => {
+                if (!socket || !socket.connected) {
+                    console.log('🔧 No server connection, starting offline mode immediately');
+                    initOfflineMode();
+                }
+            }, 2000);
         }
 
         // Handle Enter key in username input and load saved username
@@ -2247,7 +2277,7 @@
                         console.log('👥 All players:', gameState.players);
                         console.log('💊 Pills:', gameState.pills);
                         
-                        if (!gameLoopStarted && gameState.myPlayer) {
+                        if (!gameLoopStarted) {
                             console.log('🎮 Starting game loop');
                             gameLoopStarted = true;
                             requestAnimationFrame(gameLoop);
@@ -2258,7 +2288,11 @@
                         // Force update mobile daily leaderboard on game state received
                         if (state.dailyLeaderboard && state.dailyLeaderboard.topScores) {
                             console.log('🔄 Force updating mobile daily leaderboard on game state');
+                            console.log('🔄 Daily leaderboard data:', state.dailyLeaderboard);
+                            console.log('🔄 Top scores:', state.dailyLeaderboard.topScores);
                             updateMobileDailyLeaderboard(state.dailyLeaderboard.topScores.slice(0, 3));
+                        } else {
+                            console.log('🔄 No daily leaderboard data in game state');
                         }
                     }
                 });
@@ -2408,12 +2442,22 @@
 
                 // Daily leaderboard events
                 socket.on('dailyLeaderboardUpdate', (data) => {
+                    console.log('📊 Received daily leaderboard update:', data);
+                    console.log('📊 Data type:', typeof data, 'Has topScores:', !!data.topScores);
+                    if (data.topScores) {
+                        console.log('📊 TopScores type:', typeof data.topScores, 'Is array:', Array.isArray(data.topScores));
+                        console.log('📊 TopScores content:', data.topScores);
+                    }
+                    
                     updateDailyLeaderboard(data);
                     // Also update the daily top 3 section (right side and mobile)
                     updateAllTimeLeaderboard(data);
                     // Explicitly update mobile daily leaderboard
                     if (data.topScores) {
+                        console.log('📱 Updating mobile daily from socket event');
                         updateMobileDailyLeaderboard(data.topScores.slice(0, 3));
+                    } else {
+                        console.warn('📱 No topScores in daily leaderboard update');
                     }
                 });
 
@@ -2436,13 +2480,24 @@
         }
 
         function gameLoop(timestamp) {
+            // Debug: Log first few frames to verify game loop is running
+            if (frameCount < 5) {
+                console.log('🎮 Game loop running, frame:', frameCount, 'Player exists:', !!gameState.myPlayer);
+            }
+            
+            // If no player, just render background and continue
             if (!gameState.myPlayer) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#0a0a0a';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                frameCount++;
                 requestAnimationFrame(gameLoop);
                 return;
             }
 
             // Frame rate limiting for consistent performance
-            const deltaTime = Math.min(timestamp - lastFrameTime, 50);
+            if (!timestamp) timestamp = performance.now();
+            const deltaTime = timestamp - lastFrameTime;
             if (deltaTime < FRAME_TIME) {
                 requestAnimationFrame(gameLoop);
                 return;
@@ -2561,6 +2616,11 @@
             ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
+            // Debug: Log first few frames to verify game loop is running
+            if (frameCount < 5) {
+                console.log('🎮 Game loop running, frame:', frameCount, 'Player exists:', !!gameState.myPlayer);
+            }
+            
             ctx.translate(-camera.x, -camera.y);
 
             drawGrid();
@@ -2669,10 +2729,14 @@
                 name: playerUsername || 'You (Offline)',
                 angle: 0,
                 direction: 1,
-                kills: 0
+                score: 0
             };
             gameState.players['offline-player'] = gameState.myPlayer;
             gameState.playerCount = 1;
+            
+            console.log('🎮 Player created:', gameState.myPlayer);
+            console.log('🌍 World size:', WORLD_WIDTH, 'x', WORLD_HEIGHT);
+            console.log('📺 Canvas size:', CANVAS_WIDTH, 'x', CANVAS_HEIGHT);
             
             updateHUD();
             document.getElementById('playerName').textContent = playerUsername || 'Offline Mode';
@@ -2703,105 +2767,7 @@
             }
         }
         
-        // Game functions
-        function shoot() {
-            if (!gameState.myPlayer || gameState.myPlayer.health <= 0 || !canShoot) return;
-            
-            canShoot = false;
-            setTimeout(() => { canShoot = true; }, ATTACK_COOLDOWN);
-            
-            const player = gameState.myPlayer;
-            
-            if (isMobile) {
-                // Mobile: Use bat collision detection - no cursor needed
-                let attackDirection = player.direction || 1; // Default to left if no direction
-                
-                // On mobile, attack in the direction the player is facing or moving
-                if (mobileTouch.movement.x > 0.1) {
-                    attackDirection = -1; // Moving right, attack right
-                } else if (mobileTouch.movement.x < -0.1) {
-                    attackDirection = 1; // Moving left, attack left
-                }
-                
-                const baseAngle = attackDirection === 1 ? Math.PI : 0; // Left = π, Right = 0
-                
-                // Calculate bat position for collision detection
-                const batReach = BAT_SIZE * 0.8; // How far the bat extends
-                const batX = player.x + Math.cos(baseAngle) * batReach;
-                const batY = player.y + Math.sin(baseAngle) * batReach;
-                
-                if (socket && socket.connected) {
-                    // Send mobile collision attack with bat position
-                    socket.emit('mobileCollisionAttack', { 
-                        direction: attackDirection,
-                        baseAngle: baseAngle,
-                        batX: batX,
-                        batY: batY,
-                        batSize: BAT_SIZE,
-                        isMobile: true
-                    });
-                }
-                
-                // Start attack animation
-                isAttacking = true;
-                attackStartTime = Date.now();
-                attackAngle = baseAngle;
-                
-                // Check for local collisions in offline mode
-                if (!socket || !socket.connected) {
-                    checkMobileBatCollisions(batX, batY, BAT_SIZE);
-                }
-                
-                // Broadcast attack animation
-                if (socket && socket.connected) {
-                    socket.emit('attackAnimation', {
-                        playerId: gameState.myId,
-                        angle: baseAngle,
-                        timestamp: Date.now()
-                    });
-                }
-            } else {
-                // Desktop: Use original precise attack system
-                let attackDirection = player.direction || 1; // Default to left if no direction
-                
-                // If mouse is on opposite side of player, attack in that direction
-                if (mouse.x > player.x && attackDirection === 1) {
-                    attackDirection = -1; // Attack right
-                } else if (mouse.x < player.x && attackDirection === -1) {
-                    attackDirection = 1; // Attack left
-                }
-                
-                // Calculate attack angle based on direction (wide sweep)
-                const baseAngle = attackDirection === 1 ? Math.PI : 0; // Left = π, Right = 0
-                
-                if (socket && socket.connected) {
-                    // Send area attack instead of precise angle
-                    socket.emit('areaAttack', { 
-                        direction: attackDirection,
-                        baseAngle: baseAngle
-                    });
-                }
-                
-                // Start attack animation with the base angle for visual feedback
-                isAttacking = true;
-                attackStartTime = Date.now();
-                attackAngle = baseAngle;
-                
-                // Broadcast attack animation to other players
-                if (socket && socket.connected) {
-                    socket.emit('attackAnimation', {
-                        playerId: gameState.myId,
-                        angle: baseAngle,
-                        timestamp: Date.now()
-                    });
-                }
-            }
-            
-            // Enhanced bonk sound with better volume
-            const bonkSound = new Audio('data:audio/wav;base64,UklGRjIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAAABmYWN0BAAAAAAAAABkYXRhAAAAAA==');
-            bonkSound.volume = 0.6;
-            bonkSound.play().catch(e => console.log('Audio play failed:', e));
-        }
+        // Attack system removed - this is now a peaceful pill collection game
         
         function requestRespawn() {
             if (socket && socket.connected) {
@@ -2809,8 +2775,8 @@
             } else {
                 // Offline mode - respawn locally
                 gameState.myPlayer.health = 100;
-                gameState.myPlayer.x = canvas.width / 2;
-                gameState.myPlayer.y = canvas.height / 2;
+                gameState.myPlayer.x = WORLD_WIDTH / 2;
+                gameState.myPlayer.y = WORLD_HEIGHT / 2;
                 hideRespawnScreen();
                 updateHUD();
             }
@@ -2825,44 +2791,7 @@
             document.getElementById('respawnOverlay').style.display = 'none';
         }
         
-        // Mobile bat collision detection function
-        function checkMobileBatCollisions(batX, batY, batSize) {
-            if (!gameState.myPlayer) return;
-            
-            const batRadius = batSize / 2;
-            const playerRadius = PLAYER_SIZE / 2;
-            
-            // Check collision with all other players
-            for (const playerId in gameState.players) {
-                const otherPlayer = gameState.players[playerId];
-                if (!otherPlayer || playerId === gameState.myId || otherPlayer.health <= 0) continue;
-                
-                // Calculate distance between bat center and player center
-                const dx = batX - otherPlayer.x;
-                const dy = batY - otherPlayer.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                // Check if bat sprite overlaps with player sprite
-                const collisionDistance = batRadius + playerRadius;
-                
-                if (distance <= collisionDistance) {
-                    console.log('Mobile bat collision detected!', { 
-                        batX, batY, 
-                        playerX: otherPlayer.x, 
-                        playerY: otherPlayer.y, 
-                        distance, 
-                        collisionDistance 
-                    });
-                    
-                    // Create hit effect
-                    createHitEffect(otherPlayer.x, otherPlayer.y);
-                    
-                    // In offline mode, we can't actually damage other players
-                    // This is just for visual feedback
-                    break; // Only hit one player per attack
-                }
-            }
-        }
+        // Mobile bat collision function removed - no longer needed for pill collection game
         
         // Visual effects
         function createMuzzleFlash(x, y) {
@@ -2930,23 +2859,7 @@
             });
         }
         
-        function addToKillFeed(message) {
-            killFeed.unshift({ message, time: Date.now() });
-            if (killFeed.length > 5) killFeed.pop();
-            updateKillFeedDisplay();
-        }
-        
-        function updateKillFeedDisplay() {
-            const killFeedEl = document.getElementById('killFeed');
-            killFeedEl.innerHTML = '';
-            
-            killFeed.forEach(feed => {
-                const div = document.createElement('div');
-                div.className = 'kill-message';
-                div.textContent = feed.message;
-                killFeedEl.appendChild(div);
-            });
-        }
+        // Kill feed system removed - this is a peaceful pill collection game
         
         function updateHUD() {
             if (gameState.myPlayer) {
@@ -2977,7 +2890,6 @@
             
             // Clear game state
             gameState.players = {};
-            gameState.bullets = [];
             gameState.playerCount = 0;
             updateHUD();
             
@@ -3042,9 +2954,11 @@
             // Update hit effects
             for (let i = hitEffects.length - 1; i >= 0; i--) {
                 const effect = hitEffects[i];
-                effect.life--;
-                if (effect.life <= 0) {
-                    hitEffects.splice(i, 1);
+                if (effect && effect.life !== undefined) {
+                    effect.life--;
+                    if (effect.life <= 0) {
+                        hitEffects.splice(i, 1);
+                    }
                 }
             }
             
@@ -3460,6 +3374,24 @@
             }
         }
 
+        function drawHitEffects() {
+            for (let i = hitEffects.length - 1; i >= 0; i--) {
+                const effect = hitEffects[i];
+                if (effect.life <= 0) {
+                    hitEffects.splice(i, 1);
+                    continue;
+                }
+                
+                const alpha = effect.life / effect.maxLife;
+                const size = effect.size * (1 + (1 - alpha));
+                
+                ctx.beginPath();
+                ctx.arc(effect.x, effect.y, size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 68, 68, ${alpha})`;
+                ctx.fill();
+            }
+        }
+        
         function drawPillParticles() {
             pillParticles.forEach(particle => {
                 const alpha = particle.life / particle.maxLife;
@@ -3576,6 +3508,97 @@
             // Initialize mobile daily leaderboard with empty state
             updateMobileDailyLeaderboard([]);
             
+            // Add test function to window for debugging
+            window.testMobileDaily = function() {
+                console.log('🧪 Testing mobile daily leaderboard...');
+                const testData = [
+                    { name: 'Test Player 1', score: 100 },
+                    { name: 'Test Player 2', score: 50 },
+                    { name: 'Test Player 3', score: 25 }
+                ];
+                updateMobileDailyLeaderboard(testData);
+            };
+            
+            // Debug mobile daily leaderboard visibility
+            window.debugMobileDaily = function() {
+                const element = document.getElementById('mobileDailyLeaderboard');
+                if (element) {
+                    const styles = window.getComputedStyle(element);
+                    console.log('📱 Mobile daily leaderboard element found:', {
+                        display: styles.display,
+                        visibility: styles.visibility,
+                        opacity: styles.opacity,
+                        width: styles.width,
+                        height: styles.height
+                    });
+                } else {
+                    console.warn('📱 Mobile daily leaderboard element not found!');
+                }
+                
+                // Also check the list element
+                const listElement = document.getElementById('mobileDailyList');
+                if (listElement) {
+                    console.log('📱 Mobile daily list element found, children:', listElement.children.length);
+                } else {
+                    console.warn('📱 Mobile daily list element not found!');
+                }
+            };
+            
+            // Force update mobile daily with current data
+            window.forceMobileDaily = function() {
+                console.log('🔧 Force updating mobile daily leaderboard...');
+                if (gameState.dailyLeaderboard && gameState.dailyLeaderboard.topScores) {
+                    updateMobileDailyLeaderboard(gameState.dailyLeaderboard.topScores.slice(0, 3));
+                } else {
+                    console.log('🔧 No daily leaderboard data available, using test data');
+                    window.testMobileDaily();
+                }
+            };
+            
+            // Check mobile status and game state
+            window.checkMobileStatus = function() {
+                console.log('📱 Mobile Status Check:', {
+                    isMobile: isMobile,
+                    windowWidth: window.innerWidth,
+                    windowHeight: window.innerHeight,
+                    connected: socket && socket.connected,
+                    hasGameState: !!gameState,
+                    hasDailyLeaderboard: !!(gameState.dailyLeaderboard),
+                    dailyTopScores: gameState.dailyLeaderboard ? gameState.dailyLeaderboard.topScores : null
+                });
+            };
+
+            // Debug functions for daily top 3 leaderboard
+            window.testDailyTop3 = function() {
+                console.log('🧪 Testing daily top 3 leaderboard...');
+                const testData = {
+                    topScores: [
+                        { name: 'TestPlayer1', score: 100, timestamp: Date.now() - 60000 },
+                        { name: 'TestPlayer2', score: 80, timestamp: Date.now() - 120000 },
+                        { name: 'TestPlayer3', score: 60, timestamp: Date.now() - 180000 }
+                    ]
+                };
+                updateAllTimeLeaderboard(testData);
+            };
+
+            window.debugDailyTop3 = function() {
+                const element = document.getElementById('alltimeLeaderboardList');
+                console.log('👑 Daily top 3 element:', element);
+                if (element) {
+                    const styles = window.getComputedStyle(element);
+                    console.log('👑 Element styles:', {
+                        display: styles.display,
+                        visibility: styles.visibility,
+                        opacity: styles.opacity,
+                        width: styles.width,
+                        height: styles.height
+                    });
+                    console.log('👑 Element innerHTML:', element.innerHTML);
+                } else {
+                    console.warn('👑 alltimeLeaderboardList element not found!');
+                }
+            };
+            
             // Fallback: if no connection after username is submitted, start offline mode
             setTimeout(() => {
                 if (usernameSubmitted && (!socket || !socket.connected)) {
@@ -3584,7 +3607,7 @@
                         initOfflineMode();
                     }
                 }
-            }, 10000);
+            }, 3000); // Reduced timeout to 3 seconds
         });
         
         // Input event listeners
@@ -3968,6 +3991,13 @@
             }
             
             console.log('📱 Updating mobile daily leaderboard with:', topScores);
+            console.log('📱 Type of topScores:', typeof topScores, 'Array?', Array.isArray(topScores));
+            
+            // Ensure topScores is an array
+            if (!Array.isArray(topScores)) {
+                console.warn('📱 topScores is not an array:', topScores);
+                topScores = [];
+            }
             
             // Clear existing items
             mobileDailyList.innerHTML = '';
@@ -3981,7 +4011,7 @@
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'mobile-daily-item';
                 
-                if (entry) {
+                if (entry && entry.name && entry.score !== undefined) {
                     // Check if this is the current player
                     const isMyPlayer = gameState.myPlayer && gameState.myPlayer.name === entry.name;
                     
@@ -4004,10 +4034,13 @@
                         <div class="mobile-daily-name">-</div>
                         <div class="mobile-daily-score">0</div>
                     `;
+                    console.log(`📱 Added empty slot ${rank}`);
                 }
                 
                 mobileDailyList.appendChild(itemDiv);
             }
+            
+            console.log('📱 Mobile daily leaderboard update complete');
         }
 
         // Real-time "time ago" updates
@@ -4029,25 +4062,42 @@
 
         // Daily Top 3 leaderboard functions (renamed from all-time)
         function updateAllTimeLeaderboard(data) {
-            if (!data) return;
+            if (!data) {
+                console.warn('👑 No data provided to updateAllTimeLeaderboard');
+                return;
+            }
             
             console.log('👑 Updating daily top 3 leaderboard:', data);
+            console.log('👑 Data type:', typeof data, 'Has topScores:', !!data.topScores);
+            if (data.topScores) {
+                console.log('👑 TopScores:', data.topScores);
+                console.log('👑 TopScores length:', data.topScores.length);
+            }
             
             // Update daily top 3 leaderboard display
             if (data.topScores && Array.isArray(data.topScores)) {
+                console.log('👑 Updating display with top scores:', data.topScores.slice(0, 3));
                 updateAllTimeLeaderboardDisplay(data.topScores.slice(0, 3)); // Only show top 3
                 // Also update mobile daily leaderboard
                 updateMobileDailyLeaderboard(data.topScores.slice(0, 3));
+            } else {
+                console.warn('👑 No valid topScores array found in data');
             }
         }
 
         function updateAllTimeLeaderboardDisplay(topScores) {
+            console.log('👑 updateAllTimeLeaderboardDisplay called with:', topScores);
             const alltimeLeaderboardList = document.getElementById('alltimeLeaderboardList');
-            if (!alltimeLeaderboardList) return;
+            if (!alltimeLeaderboardList) {
+                console.warn('👑 alltimeLeaderboardList element not found!');
+                return;
+            }
             
+            console.log('👑 Clearing and updating leaderboard display');
             alltimeLeaderboardList.innerHTML = '';
             
-            if (topScores.length === 0) {
+            if (!topScores || topScores.length === 0) {
+                console.log('👑 No top scores, showing empty state');
                 alltimeLeaderboardList.innerHTML = `
                     <div class="alltime-leaderboard-item">
                         <div class="alltime-leaderboard-rank">-</div>
@@ -4228,6 +4278,19 @@
         // Mobile detection and responsive canvas
         const isMobile = window.innerWidth <= 768;
         let canvasScale = 1;
+        
+        console.log('📱 Mobile detection:', {
+            isMobile: isMobile,
+            windowWidth: window.innerWidth,
+            userAgent: navigator.userAgent
+        });
+        
+        // Add mobile-specific debugging
+        if (isMobile) {
+            console.log('📱 Mobile mode activated');
+            console.log('📱 Touch events supported:', 'ontouchstart' in window);
+            console.log('📱 Canvas size will be:', window.innerWidth, 'x', window.innerHeight);
+        }
 
         // Mobile touch controls
         let mobileJoystick = {
@@ -4275,13 +4338,29 @@
             const joystick = document.getElementById('mobileJoystick');
             const knob = document.getElementById('mobileJoystickKnob');
 
-            if (!joystick || !knob) return;
+            console.log('📱 Initializing mobile controls:', {
+                joystick: !!joystick,
+                knob: !!knob,
+                isMobile: isMobile
+            });
+
+            if (!joystick || !knob) {
+                console.warn('📱 Mobile control elements not found!');
+                return;
+            }
 
             // Joystick touch events
             joystick.addEventListener('touchstart', (e) => {
                 e.preventDefault();
                 const touch = e.touches[0];
                 const rect = joystick.getBoundingClientRect();
+                
+                console.log('📱 Joystick touch start:', { 
+                    touchX: touch.clientX, 
+                    touchY: touch.clientY,
+                    rectLeft: rect.left,
+                    rectTop: rect.top
+                });
                 
                 mobileJoystick.active = true;
                 mobileJoystick.startX = rect.left + rect.width / 2;
@@ -4341,139 +4420,17 @@
             // Update movement input (normalize to -1 to 1 range)
             mobileTouch.movement.x = mobileJoystick.deltaX / mobileJoystick.maxDistance;
             mobileTouch.movement.y = mobileJoystick.deltaY / mobileJoystick.maxDistance;
-        }
-
-        // Game loop continues here...
-
-        // If there's movement input
-        if (dx !== 0 || dy !== 0) {
-            // Normalize diagonal movement
-            if (dx !== 0 && dy !== 0) {
-                const normalizer = 1 / Math.sqrt(2);
-                dx *= normalizer;
-                dy *= normalizer;
-            }
-
-            // Apply speed and delta time
-            const moveSpeed = PLAYER_SPEED * (deltaTime / 16);
-            dx *= moveSpeed;
-            dy *= moveSpeed;
-
-            // Calculate new position using world boundaries
-            const newX = Math.max(PLAYER_SIZE/2, Math.min(WORLD_WIDTH - PLAYER_SIZE/2, gameState.myPlayer.x + dx));
-            const newY = Math.max(PLAYER_SIZE/2, Math.min(WORLD_HEIGHT - PLAYER_SIZE/2, gameState.myPlayer.y + dy));
-
-            // Update local position immediately for smooth movement
-            gameState.myPlayer.x = newX;
-            gameState.myPlayer.y = newY;
             
-            // IMPORTANT: Also update the position in the players collection
-            if (gameState.players[gameState.myId]) {
-                gameState.players[gameState.myId].x = newX;
-                gameState.players[gameState.myId].y = newY;
-                gameState.players[gameState.myId].direction = gameState.myPlayer.direction;
-            }
-
-            // Only send update to server if enough time has passed
-            const now = Date.now();
-            const timeSinceLastUpdate = now - lastMovementUpdate;
-            const distanceMoved = Math.sqrt(
-                Math.pow(newX - lastSentPosition.x, 2) + 
-                Math.pow(newY - lastSentPosition.y, 2)
-            );
-
-            if (timeSinceLastUpdate >= MOVEMENT_UPDATE_RATE && distanceMoved >= MIN_MOVEMENT_DISTANCE) {
-                if (socket && socket.connected) {
-                    const weaponAngle = Math.atan2(mouse.y - gameState.myPlayer.y, mouse.x - gameState.myPlayer.x);
-                    
-                    socket.emit('move', {
-                        x: newX,
-                        y: newY,
-                        direction: gameState.myPlayer.direction,
-                        weaponAngle: weaponAngle
-                    });
-                    lastMovementUpdate = now;
-                    lastSentPosition = { x: newX, y: newY };
-                }
+            // Debug movement calculation
+            if (Math.abs(mobileTouch.movement.x) > 0.1 || Math.abs(mobileTouch.movement.y) > 0.1) {
+                console.log('📱 Mobile movement:', {
+                    deltaX: mobileJoystick.deltaX,
+                    deltaY: mobileJoystick.deltaY,
+                    movementX: mobileTouch.movement.x,
+                    movementY: mobileTouch.movement.y
+                });
             }
         }
-
-        // Update camera to follow player
-        if (gameState.myPlayer) {
-            camera.targetX = gameState.myPlayer.x - CANVAS_WIDTH / 2;
-            camera.targetY = gameState.myPlayer.y - CANVAS_HEIGHT / 2;
-            
-            camera.x += (camera.targetX - camera.x) * camera.smoothing;
-            camera.y += (camera.targetY - camera.y) * camera.smoothing;
-            
-            camera.x = Math.max(0, Math.min(WORLD_WIDTH - CANVAS_WIDTH, camera.x));
-            camera.y = Math.max(0, Math.min(WORLD_HEIGHT - CANVAS_HEIGHT, camera.y));
-        }
-
-        // Clear and render with camera translation
-        ctx.save();
-        ctx.fillStyle = '#0a0a0a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        ctx.translate(-camera.x, -camera.y);
-
-        drawGrid();
-        
-        // Update interpolated positions for other players
-        const now2 = Date.now();
-        for (const playerId in playerInterpolationData) {
-            const interpData = playerInterpolationData[playerId];
-            const player = gameState.players[playerId];
-            
-            if (player && interpData) {
-                const elapsed = now2 - interpData.startTime;
-                const duration = 60;
-                
-                if (elapsed < duration) {
-                    const progress = elapsed / duration;
-                    const easeOutCubic = 1 - Math.pow(1 - progress, 3);
-                    
-                    player.x = interpData.startX + (interpData.targetX - interpData.startX) * easeOutCubic;
-                    player.y = interpData.startY + (interpData.targetY - interpData.startY) * easeOutCubic;
-                } else {
-                    // Interpolation complete, snap to target
-                    player.x = interpData.targetX;
-                    player.y = interpData.targetY;
-                    delete playerInterpolationData[playerId];
-                }
-            }
-        }
-        
-        // Draw all players
-        let myPlayerDrawn = false;
-        for (const playerId in gameState.players) {
-            const player = gameState.players[playerId];
-            if (player && player.health > 0) {
-                drawPlayer(player);
-                if (playerId === gameState.myId) {
-                    myPlayerDrawn = true;
-                }
-            }
-        }
-        
-        // Ensure myPlayer is always drawn (fallback)
-        if (!myPlayerDrawn && gameState.myPlayer && gameState.myPlayer.health > 0) {
-            drawPlayer(gameState.myPlayer);
-        }
-
-        drawHitEffects();
-        drawPillParticles();
-        
-        // Update visual effects
-        updateVisualEffects();
-        
-        // Restore camera transformation for UI elements
-        ctx.restore();
-        
-        drawCrosshair();
-
-        // Update leaderboard periodically
-        updateLeaderboard();
     </script>
 </body>
 </html>
