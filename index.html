@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-    <title>PUMP ARENA</title>
+    <title>PILLERS</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
         
@@ -1427,38 +1427,81 @@
             max-width: 800px;
         }
 
-        .contract-title {
-            font-size: 18px;
+        /* Rewards Section */
+        .rewards-section {
+            width: 100%;
+            max-width: 1200px;
+            background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 140, 0, 0.05));
+            backdrop-filter: blur(10px);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .rewards-title {
+            font-size: 12px;
             font-weight: 700;
-            color: #8a2be2;
-            margin-bottom: 15px;
+            background: linear-gradient(135deg, #ffd700, #ff8c00);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
             text-transform: uppercase;
-            letter-spacing: 1px;
         }
 
-        .contract-address-container {
+        .rewards-list {
             display: flex;
+            justify-content: center;
             align-items: center;
-            gap: 10px;
-            background: rgba(0, 0, 0, 0.6);
-            border-radius: 12px;
-            padding: 12px;
-            border: 1px solid rgba(138, 43, 226, 0.2);
+            gap: 15px;
+            flex-wrap: nowrap;
         }
 
-        .contract-address {
-            flex: 1;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
+        .reward-item {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 6px;
+            padding: 4px 8px;
+            min-width: 80px;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 4px;
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            font-size: 10px;
+        }
+
+        .reward-item.first-place {
+            border-color: rgba(255, 215, 0, 0.4);
+        }
+
+        .reward-item.second-place {
+            border-color: rgba(192, 192, 192, 0.4);
+        }
+
+        .reward-item.third-place {
+            border-color: rgba(205, 127, 50, 0.4);
+        }
+
+        .reward-rank {
+            font-size: 10px;
+            font-weight: 700;
+            color: #ffd700;
+        }
+
+        .reward-percentage {
+            font-size: 11px;
+            font-weight: 900;
+            color: #ff8c00;
+        }
+
+        .reward-amount {
+            font-size: 10px;
+            font-weight: 700;
             color: #32cd32;
-            background: transparent;
-            border: none;
-            outline: none;
-            word-break: break-all;
-            text-align: left;
-            padding: 8px;
-            user-select: all;
-            cursor: text;
         }
 
         .copy-button {
@@ -1545,6 +1588,47 @@
             .copy-button:active {
                 transform: scale(0.98);
                 background: linear-gradient(135deg, #9370db, #8a2be2);
+            }
+
+            /* Mobile Rewards Section */
+            .rewards-section {
+                margin: 5px 10px 8px 10px;
+                padding: 6px 8px;
+                width: calc(100% - 20px);
+                box-sizing: border-box;
+            }
+
+            .rewards-title {
+                font-size: 10px;
+                margin-bottom: 4px;
+                letter-spacing: 0.5px;
+            }
+
+            .rewards-list {
+                flex-direction: row;
+                gap: 4px;
+                justify-content: center;
+            }
+
+            .reward-item {
+                min-width: auto;
+                width: auto;
+                padding: 3px 6px;
+                flex-direction: column;
+                gap: 2px;
+                font-size: 8px;
+            }
+
+            .reward-rank {
+                font-size: 8px;
+            }
+
+            .reward-percentage {
+                font-size: 9px;
+            }
+
+            .reward-amount {
+                font-size: 8px;
             }
 
             /* Mobile Daily Top 3 Leaderboard */
@@ -1727,12 +1811,53 @@
                 padding: 5px;
             }
         }
+
+        .reward-amount {
+            font-size: 18px;
+            font-weight: 700;
+            color: #32cd32;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .contract-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #8a2be2;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .contract-address-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 12px;
+            padding: 12px;
+            border: 1px solid rgba(138, 43, 226, 0.2);
+        }
+
+        .contract-address {
+            flex: 1;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #32cd32;
+            background: transparent;
+            border: none;
+            outline: none;
+            word-break: break-all;
+            text-align: left;
+            padding: 8px;
+            user-select: all;
+            cursor: text;
+        }
     </style>
 </head>
 <body>
     <div class="game-interface">
         <div class="game-header">
-            <h1 class="game-title">💊 PUMP ARENA</h1>
+            <h1 class="game-title">💊 PILLERS</h1>
             <div class="status-indicators">
                 <div class="connection-badge disconnected" id="connectionStatus">Disconnected</div>
                 <div class="connection-badge players-count" id="playersCount">0 Players</div>
@@ -1743,14 +1868,7 @@
         <div class="leaderboard" id="leaderboard">
             <div class="leaderboard-title">🏆 TOP PILLERS</div>
             <div class="leaderboard-list" id="leaderboardList">
-                <div class="leaderboard-item">
-                    <div class="leaderboard-rank">-</div>
-                    <div class="leaderboard-player">
-                        <div class="leaderboard-name">No PILLERS yet</div>
-                        <div class="leaderboard-stats">Waiting for pill collectors...</div>
-                    </div>
-                    <div class="leaderboard-kills">0</div>
-                </div>
+                <!-- Leaderboard will be populated by JavaScript -->
             </div>
         </div>
 
@@ -1761,20 +1879,25 @@
                 <div class="mobile-daily-countdown" id="mobileDailyCountdown">⏰ --:--:--</div>
             </div>
             <div class="mobile-daily-list" id="mobileDailyList">
-                <div class="mobile-daily-item">
-                    <div class="mobile-daily-rank">1</div>
-                    <div class="mobile-daily-name">No legends yet</div>
-                    <div class="mobile-daily-score">0</div>
+                <!-- Daily leaderboard will be populated by JavaScript -->
+            </div>
+        </div>
+
+        <!-- Rewards Information Section -->
+        <div class="rewards-section">
+            <div class="rewards-title">💰 TOP 3 PLAYERS SHARE CREATOR REWARDS EVERY 24 HOURS</div>
+            <div class="rewards-list">
+                <div class="reward-item first-place">
+                    <div class="reward-rank">🥇 TOP 1</div>
+                    <div class="reward-percentage">50%</div>
                 </div>
-                <div class="mobile-daily-item">
-                    <div class="mobile-daily-rank">2</div>
-                    <div class="mobile-daily-name">-</div>
-                    <div class="mobile-daily-score">0</div>
+                <div class="reward-item second-place">
+                    <div class="reward-rank">🥈 TOP 2</div>
+                    <div class="reward-percentage">30%</div>
                 </div>
-                <div class="mobile-daily-item">
-                    <div class="mobile-daily-rank">3</div>
-                    <div class="mobile-daily-name">-</div>
-                    <div class="mobile-daily-score">0</div>
+                <div class="reward-item third-place">
+                    <div class="reward-rank">🥉 TOP 3</div>
+                    <div class="reward-percentage">20%</div>
                 </div>
             </div>
         </div>
@@ -1793,7 +1916,7 @@
             <div class="hud-contract-section">
                 <div class="hud-contract-title">📄 Contract Address</div>
                 <div class="hud-contract-address-container">
-                    <div class="hud-contract-address" id="hudContractAddress">coming soon</div>
+                    <div class="hud-contract-address" id="hudContractAddress">Coming soon</div>
                     <button class="hud-copy-button" id="hudCopyButton" onclick="copyHudContractAddress()">📋 Copy</button>
                 </div>
             </div>
@@ -1823,14 +1946,7 @@
                         <div class="countdown-day" id="countdownDay">Loading...</div>
                     </div>
                     <div class="alltime-leaderboard-list" id="alltimeLeaderboardList">
-                        <div class="alltime-leaderboard-item">
-                            <div class="alltime-leaderboard-rank">-</div>
-                            <div class="alltime-leaderboard-player">
-                                <div class="alltime-leaderboard-name">No legends yet</div>
-                                <div class="alltime-leaderboard-stats">Be the first to make history!</div>
-                            </div>
-                            <div class="alltime-leaderboard-score">0</div>
-                        </div>
+                        <!-- Daily top 3 will be populated by JavaScript -->
                     </div>
                 </div>
 
@@ -1838,14 +1954,7 @@
                 <div class="ingame-leaderboard" id="ingameLeaderboard">
                     <div class="ingame-leaderboard-title">🏆 TOP PILLERS RIGHT NOW</div>
                     <div class="ingame-leaderboard-list" id="ingameLeaderboardList">
-                        <div class="ingame-leaderboard-item">
-                            <div class="ingame-leaderboard-rank">-</div>
-                            <div class="ingame-leaderboard-player">
-                                <div class="ingame-leaderboard-name">No PILLERS yet</div>
-                                <div class="ingame-leaderboard-stats">Waiting for pill collectors...</div>
-                            </div>
-                            <div class="ingame-leaderboard-kills">0</div>
-                        </div>
+                        <!-- Current game leaderboard will be populated by JavaScript -->
                     </div>
                 </div>
 
@@ -3914,94 +4023,70 @@
             if (leaderboardList) {
                 leaderboardList.innerHTML = '';
                 
-                if (leaderboardData.length === 0) {
-                    leaderboardList.innerHTML = `
-                        <div class="leaderboard-item">
-                            <div class="leaderboard-rank">-</div>
-                            <div class="leaderboard-player">
-                                <div class="leaderboard-name">No PILLERS yet</div>
-                                <div class="leaderboard-stats">Waiting for pill collectors...</div>
-                            </div>
-                            <div class="leaderboard-kills">0</div>
+                // Only show real data, no placeholders
+                leaderboardData.forEach((player, index) => {
+                    const rank = index + 1;
+                    const rankClass = rank === 1 ? 'first' : rank === 2 ? 'second' : 'third';
+                    const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
+                    const healthPercent = Math.round((player.health / player.maxHealth) * 100);
+                    const isMyPlayer = player.id === gameState.myId;
+                    const statusText = player.isConnected === false ? 'Offline' : `Health: ${healthPercent}%`;
+                    
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = `leaderboard-item ${rankClass}`;
+                    if (isMyPlayer) {
+                        itemDiv.style.background = 'rgba(138, 43, 226, 0.15)';
+                        itemDiv.style.borderLeftColor = '#8a2be2';
+                    } else if (player.isConnected === false) {
+                        itemDiv.style.opacity = '0.7';
+                    }
+                    
+                    itemDiv.innerHTML = `
+                        <div class="leaderboard-rank ${rankClass}">${rankIcon}</div>
+                        <div class="leaderboard-player">
+                            <div class="leaderboard-name">${player.name}${isMyPlayer ? ' (You)' : ''}${player.isConnected === false ? ' 🔌' : ''}</div>
+                            <div class="leaderboard-stats">${statusText}</div>
                         </div>
+                        <div class="leaderboard-kills">${player.score || 0}</div>
                     `;
-                } else {
-                    leaderboardData.forEach((player, index) => {
-                        const rank = index + 1;
-                        const rankClass = rank === 1 ? 'first' : rank === 2 ? 'second' : 'third';
-                        const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
-                        const healthPercent = Math.round((player.health / player.maxHealth) * 100);
-                        const isMyPlayer = player.id === gameState.myId;
-                        const statusText = player.isConnected === false ? 'Offline' : `Health: ${healthPercent}%`;
-                        
-                        const itemDiv = document.createElement('div');
-                        itemDiv.className = `leaderboard-item ${rankClass}`;
-                        if (isMyPlayer) {
-                            itemDiv.style.background = 'rgba(138, 43, 226, 0.15)';
-                            itemDiv.style.borderLeftColor = '#8a2be2';
-                        } else if (player.isConnected === false) {
-                            itemDiv.style.opacity = '0.7';
-                        }
-                        
-                        itemDiv.innerHTML = `
-                            <div class="leaderboard-rank ${rankClass}">${rankIcon}</div>
-                            <div class="leaderboard-player">
-                                <div class="leaderboard-name">${player.name}${isMyPlayer ? ' (You)' : ''}${player.isConnected === false ? ' 🔌' : ''}</div>
-                                <div class="leaderboard-stats">${statusText}</div>
-                            </div>
-                            <div class="leaderboard-kills">${player.score || 0}</div>
-                        `;
-                        
-                        leaderboardList.appendChild(itemDiv);
-                    });
-                }
+                    
+                    leaderboardList.appendChild(itemDiv);
+                });
             }
             
             // Update in-game leaderboard (desktop)
             if (ingameLeaderboardList) {
                 ingameLeaderboardList.innerHTML = '';
                 
-                if (leaderboardData.length === 0) {
-                    ingameLeaderboardList.innerHTML = `
-                        <div class="ingame-leaderboard-item">
-                            <div class="ingame-leaderboard-rank">-</div>
-                            <div class="ingame-leaderboard-player">
-                                <div class="ingame-leaderboard-name">No PILLERS yet</div>
-                                <div class="ingame-leaderboard-stats">Waiting for pill collectors...</div>
-                            </div>
-                            <div class="ingame-leaderboard-kills">0</div>
+                // Only show real data, no placeholders
+                leaderboardData.forEach((player, index) => {
+                    const rank = index + 1;
+                    const rankClass = rank === 1 ? 'first' : rank === 2 ? 'second' : 'third';
+                    const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
+                    const healthPercent = Math.round((player.health / player.maxHealth) * 100);
+                    const isMyPlayer = player.id === gameState.myId;
+                    const statusText = player.isConnected === false ? 'Offline' : `Health: ${healthPercent}%`;
+                    
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = `ingame-leaderboard-item ${rankClass}`;
+                    if (isMyPlayer) {
+                        itemDiv.style.background = 'rgba(138, 43, 226, 0.15)';
+                        itemDiv.style.borderLeftColor = '#8a2be2';
+                    } else if (player.isConnected === false) {
+                        itemDiv.style.opacity = '0.7';
+                    }
+                    
+                    itemDiv.innerHTML = `
+                        <div class="ingame-leaderboard-rank ${rankClass}">${rankIcon}</div>
+                        <div class="ingame-leaderboard-player">
+                            <div class="ingame-leaderboard-name">${player.name}${isMyPlayer ? ' (You)' : ''}${player.isConnected === false ? ' 🔌' : ''}</div>
+                            <div class="ingame-leaderboard-stats">${statusText}</div>
                         </div>
+                        <div class="ingame-leaderboard-kills">${player.score || 0}</div>
                     `;
-                } else {
-                    leaderboardData.forEach((player, index) => {
-                        const rank = index + 1;
-                        const rankClass = rank === 1 ? 'first' : rank === 2 ? 'second' : 'third';
-                        const rankIcon = rank === 1 ? '🥇' : rank === 2 ? '🥈' : '🥉';
-                        const healthPercent = Math.round((player.health / player.maxHealth) * 100);
-                        const isMyPlayer = player.id === gameState.myId;
-                        const statusText = player.isConnected === false ? 'Offline' : `Health: ${healthPercent}%`;
-                        
-                        const itemDiv = document.createElement('div');
-                        itemDiv.className = `ingame-leaderboard-item ${rankClass}`;
-                        if (isMyPlayer) {
-                            itemDiv.style.background = 'rgba(138, 43, 226, 0.15)';
-                            itemDiv.style.borderLeftColor = '#8a2be2';
-                        } else if (player.isConnected === false) {
-                            itemDiv.style.opacity = '0.7';
-                        }
-                        
-                        itemDiv.innerHTML = `
-                            <div class="ingame-leaderboard-rank ${rankClass}">${rankIcon}</div>
-                            <div class="ingame-leaderboard-player">
-                                <div class="ingame-leaderboard-name">${player.name}${isMyPlayer ? ' (You)' : ''}${player.isConnected === false ? ' 🔌' : ''}</div>
-                                <div class="ingame-leaderboard-stats">${statusText}</div>
-                            </div>
-                            <div class="ingame-leaderboard-kills">${player.score || 0}</div>
-                        `;
-                        
-                        ingameLeaderboardList.appendChild(itemDiv);
-                    });
-                }
+                    
+                    ingameLeaderboardList.appendChild(itemDiv);
+                });
             }
         }
 
@@ -4063,16 +4148,15 @@
             // Clear existing items
             mobileDailyList.innerHTML = '';
             
-            // Create 3 slots (even if empty)
-            for (let i = 0; i < 3; i++) {
-                const rank = i + 1;
-                const entry = topScores[i];
-                const rankIcon = rank === 1 ? '👑' : rank === 2 ? '🥈' : '🥉';
-                
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'mobile-daily-item';
-                
+            // Only show real data, no empty slots
+            topScores.slice(0, 3).forEach((entry, index) => {
                 if (entry && entry.name && entry.score !== undefined) {
+                    const rank = index + 1;
+                    const rankIcon = rank === 1 ? '👑' : rank === 2 ? '🥈' : '🥉';
+                    
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'mobile-daily-item';
+                    
                     // Check if this is the current player
                     const isMyPlayer = gameState.myPlayer && gameState.myPlayer.name === entry.name;
                     
@@ -4087,19 +4171,10 @@
                         <div class="mobile-daily-score">${entry.score}</div>
                     `;
                     
+                    mobileDailyList.appendChild(itemDiv);
                     console.log(`📱 Added mobile daily entry ${rank}: ${entry.name} - ${entry.score}`);
-                } else {
-                    // Empty slot
-                    itemDiv.innerHTML = `
-                        <div class="mobile-daily-rank">${rank}</div>
-                        <div class="mobile-daily-name">-</div>
-                        <div class="mobile-daily-score">0</div>
-                    `;
-                    console.log(`📱 Added empty slot ${rank}`);
                 }
-                
-                mobileDailyList.appendChild(itemDiv);
-            }
+            });
             
             console.log('📱 Mobile daily leaderboard update complete');
         }
@@ -4157,19 +4232,8 @@
             console.log('👑 Clearing and updating leaderboard display');
             alltimeLeaderboardList.innerHTML = '';
             
-            if (!topScores || topScores.length === 0) {
-                console.log('👑 No top scores, showing empty state');
-                alltimeLeaderboardList.innerHTML = `
-                    <div class="alltime-leaderboard-item">
-                        <div class="alltime-leaderboard-rank">-</div>
-                        <div class="alltime-leaderboard-player">
-                            <div class="alltime-leaderboard-name">No daily scores yet</div>
-                            <div class="alltime-leaderboard-stats">Be the first to collect pills today!</div>
-                        </div>
-                        <div class="alltime-leaderboard-score">0</div>
-                    </div>
-                `;
-            } else {
+            // Only show real data, no placeholders
+            if (topScores && topScores.length > 0) {
                 topScores.slice(0, 3).forEach((entry, index) => {
                     const rank = index + 1;
                     const rankClass = rank === 1 ? 'first' : rank === 2 ? 'second' : rank === 3 ? 'third' : '';

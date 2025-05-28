@@ -1,61 +1,11 @@
 {
-  "currentDay": "Mon May 26 2025",
+  "currentDay": "Wed May 28 2025",
   "topScores": {
-    "sa": {
-      "name": "sa",
-      "score": 39,
-      "timestamp": 1748271005939
-    },
-    "saas": {
-      "name": "saas",
-      "score": 4,
-      "timestamp": 1748271020050
-    },
-    "saassa": {
-      "name": "saassa",
-      "score": 100,
-      "timestamp": 1748273706124
-    },
-    "saassaas": {
-      "name": "saassaas",
-      "score": 9,
-      "timestamp": 1748271822166
-    },
-    "saassaassa": {
-      "name": "saassaassa",
-      "score": 13,
-      "timestamp": 1748271994026
-    },
-    "saassasa": {
-      "name": "saassasa",
-      "score": 69,
-      "timestamp": 1748273867044
-    },
-    "sasses": {
-      "name": "sasses",
-      "score": 7,
-      "timestamp": 1748274107318
-    },
-    "sassessa": {
-      "name": "sassessa",
-      "score": 10,
-      "timestamp": 1748274912017
-    },
-    "as": {
-      "name": "as",
-      "score": 14,
-      "timestamp": 1748276652646
-    },
-    "asss": {
-      "name": "asss",
-      "score": 4,
-      "timestamp": 1748276753483
-    },
     "assssa": {
       "name": "assssa",
-      "score": 81,
-      "timestamp": 1748298049377
+      "score": 6,
+      "timestamp": 1748468764164
     }
   },
-  "resetTime": 1748329200000
+  "resetTime": 1748502000000
 }
