@@ -2362,6 +2362,18 @@
 
                 socket.on('gameState', (state) => {
                     console.log('📦 Received game state:', state);
+                    console.log('📦 === DAILY LEADERBOARD DEBUG ===');
+                    console.log('📦 Has dailyLeaderboard?', !!state.dailyLeaderboard);
+                    console.log('📦 Daily leaderboard content:', state.dailyLeaderboard);
+                    if (state.dailyLeaderboard) {
+                        console.log('📦 Has topScores?', !!state.dailyLeaderboard.topScores);
+                        console.log('📦 TopScores type:', typeof state.dailyLeaderboard.topScores);
+                        console.log('📦 TopScores array?', Array.isArray(state.dailyLeaderboard.topScores));
+                        console.log('📦 TopScores length:', state.dailyLeaderboard.topScores ? state.dailyLeaderboard.topScores.length : 'N/A');
+                        console.log('📦 TopScores content:', state.dailyLeaderboard.topScores);
+                    }
+                    console.log('📦 === END DAILY LEADERBOARD DEBUG ===');
+                    
                     if (state && state.players) {
                     gameState.players = state.players;
                         gameState.myPlayer = state.players[socket.id];
@@ -3649,6 +3661,9 @@
             // Initialize mobile daily leaderboard with empty state
             updateMobileDailyLeaderboard([]);
             
+            // Initialize desktop daily top 3 leaderboard with empty state
+            updateAllTimeLeaderboardDisplay([]);
+            
             // Add test function to window for debugging
             window.testMobileDaily = function() {
                 console.log('🧪 Testing mobile daily leaderboard...');
@@ -3720,6 +3735,29 @@
                     ]
                 };
                 updateAllTimeLeaderboard(testData);
+            };
+
+            // NEW: Immediate test function to force update with real-looking data
+            window.forceRealDailyData = function() {
+                console.log('🔧 Forcing daily top 3 with simulated real data...');
+                const realLookingData = {
+                    topScores: [
+                        { name: 'ProPiller', score: 150, timestamp: Date.now() - 30000 },
+                        { name: 'MasterCollector', score: 120, timestamp: Date.now() - 60000 },
+                        { name: 'PillHunter', score: 95, timestamp: Date.now() - 90000 }
+                    ],
+                    timeRemaining: Date.now() + (8 * 60 * 60 * 1000), // 8 hours
+                    currentDay: new Date().toDateString()
+                };
+                
+                // Simulate receiving this as initial game state
+                gameState.dailyLeaderboard = realLookingData;
+                
+                // Update displays
+                updateAllTimeLeaderboard(realLookingData);
+                updateMobileDailyLeaderboard(realLookingData.topScores.slice(0, 3));
+                
+                console.log('🔧 Forced update complete! Check the leaderboards now.');
             };
 
             window.debugDailyTop3 = function() {
@@ -4115,8 +4153,9 @@
             // Store daily leaderboard data for use by other functions
             if (data.topScores && Array.isArray(data.topScores)) {
                 gameState.dailyLeaderboard = data;
-                // Update mobile daily leaderboard when data changes
+                // Update both mobile and desktop daily leaderboards when data changes
                 updateMobileDailyLeaderboard(data.topScores.slice(0, 3));
+                updateAllTimeLeaderboard(data);
             }
         }
 
@@ -4148,33 +4187,53 @@
             // Clear existing items
             mobileDailyList.innerHTML = '';
             
-            // Only show real data, no empty slots
-            topScores.slice(0, 3).forEach((entry, index) => {
-                if (entry && entry.name && entry.score !== undefined) {
-                    const rank = index + 1;
+            // Show real data if available, otherwise show placeholders
+            if (topScores.length > 0) {
+                topScores.slice(0, 3).forEach((entry, index) => {
+                    if (entry && entry.name && entry.score !== undefined) {
+                        const rank = index + 1;
+                        const rankIcon = rank === 1 ? '👑' : rank === 2 ? '🥈' : '🥉';
+                        
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'mobile-daily-item';
+                        
+                        // Check if this is the current player
+                        const isMyPlayer = gameState.myPlayer && gameState.myPlayer.name === entry.name;
+                        
+                        if (isMyPlayer) {
+                            itemDiv.style.background = 'rgba(255, 215, 0, 0.3)';
+                            itemDiv.style.borderColor = '#ffd700';
+                        }
+                        
+                        itemDiv.innerHTML = `
+                            <div class="mobile-daily-rank">${rankIcon}</div>
+                            <div class="mobile-daily-name">${entry.name}${isMyPlayer ? ' (You)' : ''}</div>
+                            <div class="mobile-daily-score">${entry.score}</div>
+                        `;
+                        
+                        mobileDailyList.appendChild(itemDiv);
+                        console.log(`📱 Added mobile daily entry ${rank}: ${entry.name} - ${entry.score}`);
+                    }
+                });
+            } else {
+                // Show placeholder content when no top scores are available yet
+                for (let i = 0; i < 3; i++) {
+                    const rank = i + 1;
                     const rankIcon = rank === 1 ? '👑' : rank === 2 ? '🥈' : '🥉';
                     
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'mobile-daily-item';
-                    
-                    // Check if this is the current player
-                    const isMyPlayer = gameState.myPlayer && gameState.myPlayer.name === entry.name;
-                    
-                    if (isMyPlayer) {
-                        itemDiv.style.background = 'rgba(255, 215, 0, 0.3)';
-                        itemDiv.style.borderColor = '#ffd700';
-                    }
+                    itemDiv.style.opacity = '0.5';
                     
                     itemDiv.innerHTML = `
                         <div class="mobile-daily-rank">${rankIcon}</div>
-                        <div class="mobile-daily-name">${entry.name}${isMyPlayer ? ' (You)' : ''}</div>
-                        <div class="mobile-daily-score">${entry.score}</div>
+                        <div class="mobile-daily-name">No legend yet</div>
+                        <div class="mobile-daily-score">0</div>
                     `;
                     
                     mobileDailyList.appendChild(itemDiv);
-                    console.log(`📱 Added mobile daily entry ${rank}: ${entry.name} - ${entry.score}`);
                 }
-            });
+            }
             
             console.log('📱 Mobile daily leaderboard update complete');
         }
@@ -4198,27 +4257,31 @@
 
         // Daily Top 3 leaderboard functions (renamed from all-time)
         function updateAllTimeLeaderboard(data) {
-            if (!data) {
-                console.warn('👑 No data provided to updateAllTimeLeaderboard');
-                return;
-            }
+            console.log('👑 === DEBUG: updateAllTimeLeaderboard called ===');
+            console.log('👑 Raw data received:', data);
+            console.log('👑 Data type:', typeof data);
+            console.log('👑 Is data truthy?', !!data);
+            console.log('👑 Has topScores property?', data && data.hasOwnProperty('topScores'));
+            console.log('👑 topScores value:', data ? data.topScores : 'N/A');
+            console.log('👑 Is topScores array?', data && Array.isArray(data.topScores));
+            console.log('👑 topScores length:', data && data.topScores ? data.topScores.length : 'N/A');
             
-            console.log('👑 Updating daily top 3 leaderboard:', data);
-            console.log('👑 Data type:', typeof data, 'Has topScores:', !!data.topScores);
-            if (data.topScores) {
-                console.log('👑 TopScores:', data.topScores);
-                console.log('👑 TopScores length:', data.topScores.length);
-            }
-            
-            // Update daily top 3 leaderboard display
-            if (data.topScores && Array.isArray(data.topScores)) {
-                console.log('👑 Updating display with top scores:', data.topScores.slice(0, 3));
+            // Always update the display, even if there's no data (will show placeholders)
+            if (data && data.topScores && Array.isArray(data.topScores)) {
+                console.log('👑 ✅ Updating with real data');
+                console.log('👑 TopScores content:', data.topScores);
+                console.log('👑 Sliced top 3:', data.topScores.slice(0, 3));
+                
                 updateAllTimeLeaderboardDisplay(data.topScores.slice(0, 3)); // Only show top 3
-                // Also update mobile daily leaderboard
                 updateMobileDailyLeaderboard(data.topScores.slice(0, 3));
             } else {
-                console.warn('👑 No valid topScores array found in data');
+                console.log('👑 ⚠️ No valid data, showing placeholders');
+                console.log('👑 Reason: data=', !!data, 'topScores=', data ? !!data.topScores : false, 'isArray=', data && data.topScores ? Array.isArray(data.topScores) : false);
+                // Show placeholders when no data is available
+                updateAllTimeLeaderboardDisplay([]);
+                updateMobileDailyLeaderboard([]);
             }
+            console.log('👑 === END DEBUG ===');
         }
 
         function updateAllTimeLeaderboardDisplay(topScores) {
@@ -4232,7 +4295,7 @@
             console.log('👑 Clearing and updating leaderboard display');
             alltimeLeaderboardList.innerHTML = '';
             
-            // Only show real data, no placeholders
+            // Show real data if available, otherwise show placeholders
             if (topScores && topScores.length > 0) {
                 topScores.slice(0, 3).forEach((entry, index) => {
                     const rank = index + 1;
@@ -4264,6 +4327,28 @@
                     
                     alltimeLeaderboardList.appendChild(itemDiv);
                 });
+            } else {
+                // Show placeholder content when no top scores are available yet
+                for (let i = 0; i < 3; i++) {
+                    const rank = i + 1;
+                    const rankClass = rank === 1 ? 'first' : rank === 2 ? 'second' : rank === 3 ? 'third' : '';
+                    const rankIcon = rank === 1 ? '👑' : rank === 2 ? '🥈' : '🥉';
+                    
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = `alltime-leaderboard-item ${rankClass}`;
+                    itemDiv.style.opacity = '0.5';
+                    
+                    itemDiv.innerHTML = `
+                        <div class="alltime-leaderboard-rank ${rankClass}">${rankIcon}</div>
+                        <div class="alltime-leaderboard-player">
+                            <div class="alltime-leaderboard-name">No legend yet</div>
+                            <div class="alltime-leaderboard-stats">Be the first!</div>
+                        </div>
+                        <div class="alltime-leaderboard-score">0</div>
+                    `;
+                    
+                    alltimeLeaderboardList.appendChild(itemDiv);
+                }
             }
         }
 

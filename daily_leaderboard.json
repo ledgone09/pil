@@ -3,8 +3,13 @@
   "topScores": {
     "assssa": {
       "name": "assssa",
-      "score": 6,
-      "timestamp": 1748468764164
+      "score": 10,
+      "timestamp": 1748469622430
+    },
+    "ok": {
+      "name": "ok",
+      "score": 5,
+      "timestamp": 1748469800364
     }
   },
   "resetTime": 1748502000000
