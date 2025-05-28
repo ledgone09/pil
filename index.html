@@ -1498,12 +1498,6 @@
             color: #ff8c00;
         }
 
-        .reward-amount {
-            font-size: 10px;
-            font-weight: 700;
-            color: #32cd32;
-        }
-
         .copy-button {
             background: linear-gradient(135deg, #8a2be2, #32cd32);
             border: none;
@@ -1625,10 +1619,6 @@
 
             .reward-percentage {
                 font-size: 9px;
-            }
-
-            .reward-amount {
-                font-size: 8px;
             }
 
             /* Mobile Daily Top 3 Leaderboard */
@@ -1810,13 +1800,6 @@
                 border-radius: 8px;
                 padding: 5px;
             }
-        }
-
-        .reward-amount {
-            font-size: 18px;
-            font-weight: 700;
-            color: #32cd32;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
         }
 
         .contract-title {
@@ -4187,8 +4170,9 @@
             // Clear existing items
             mobileDailyList.innerHTML = '';
             
-            // Show real data if available, otherwise show placeholders
+            // Show data if there is ANY - even just 1 entry
             if (topScores.length > 0) {
+                console.log('📱 ✅ Displaying', topScores.length, 'mobile entries');
                 topScores.slice(0, 3).forEach((entry, index) => {
                     if (entry && entry.name && entry.score !== undefined) {
                         const rank = index + 1;
@@ -4212,27 +4196,11 @@
                         `;
                         
                         mobileDailyList.appendChild(itemDiv);
-                        console.log(`📱 Added mobile daily entry ${rank}: ${entry.name} - ${entry.score}`);
+                        console.log(`📱 ✅ Added mobile entry ${rank}: ${entry.name} - ${entry.score}`);
                     }
                 });
             } else {
-                // Show placeholder content when no top scores are available yet
-                for (let i = 0; i < 3; i++) {
-                    const rank = i + 1;
-                    const rankIcon = rank === 1 ? '👑' : rank === 2 ? '🥈' : '🥉';
-                    
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = 'mobile-daily-item';
-                    itemDiv.style.opacity = '0.5';
-                    
-                    itemDiv.innerHTML = `
-                        <div class="mobile-daily-rank">${rankIcon}</div>
-                        <div class="mobile-daily-name">No legend yet</div>
-                        <div class="mobile-daily-score">0</div>
-                    `;
-                    
-                    mobileDailyList.appendChild(itemDiv);
-                }
+                console.log('📱 ❌ No valid mobile entries to display');
             }
             
             console.log('📱 Mobile daily leaderboard update complete');
@@ -4266,8 +4234,8 @@
             console.log('👑 Is topScores array?', data && Array.isArray(data.topScores));
             console.log('👑 topScores length:', data && data.topScores ? data.topScores.length : 'N/A');
             
-            // Always update the display, even if there's no data (will show placeholders)
-            if (data && data.topScores && Array.isArray(data.topScores)) {
+            // Always update the display when there's valid data
+            if (data && data.topScores && Array.isArray(data.topScores) && data.topScores.length > 0) {
                 console.log('👑 ✅ Updating with real data');
                 console.log('👑 TopScores content:', data.topScores);
                 console.log('👑 Sliced top 3:', data.topScores.slice(0, 3));
@@ -4275,9 +4243,9 @@
                 updateAllTimeLeaderboardDisplay(data.topScores.slice(0, 3)); // Only show top 3
                 updateMobileDailyLeaderboard(data.topScores.slice(0, 3));
             } else {
-                console.log('👑 ⚠️ No valid data, showing placeholders');
-                console.log('👑 Reason: data=', !!data, 'topScores=', data ? !!data.topScores : false, 'isArray=', data && data.topScores ? Array.isArray(data.topScores) : false);
-                // Show placeholders when no data is available
+                console.log('👑 ⚠️ No valid data to display');
+                console.log('👑 Reason: data=', !!data, 'topScores=', data ? !!data.topScores : false, 'isArray=', data && data.topScores ? Array.isArray(data.topScores) : false, 'length=', data && data.topScores ? data.topScores.length : 'N/A');
+                // Clear the displays when no data is available
                 updateAllTimeLeaderboardDisplay([]);
                 updateMobileDailyLeaderboard([]);
             }
@@ -4295,60 +4263,44 @@
             console.log('👑 Clearing and updating leaderboard display');
             alltimeLeaderboardList.innerHTML = '';
             
-            // Show real data if available, otherwise show placeholders
-            if (topScores && topScores.length > 0) {
-                topScores.slice(0, 3).forEach((entry, index) => {
-                    const rank = index + 1;
-                    const rankClass = rank === 1 ? 'first' : rank === 2 ? 'second' : rank === 3 ? 'third' : '';
-                    const rankIcon = rank === 1 ? '👑' : rank === 2 ? '🥈' : '🥉';
-                    
-                    // Check if this is the current player
-                    const isMyPlayer = gameState.myPlayer && gameState.myPlayer.name === entry.name;
-                    
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = `alltime-leaderboard-item ${rankClass}`;
-                    if (isMyPlayer) {
-                        itemDiv.style.background = 'rgba(255, 215, 0, 0.2)';
-                        itemDiv.style.borderLeftColor = '#ffd700';
-                        itemDiv.style.boxShadow = '0 0 20px rgba(255, 215, 0, 0.4)';
+            // Show data if there is ANY - even just 1 entry
+            if (topScores && Array.isArray(topScores) && topScores.length > 0) {
+                console.log('👑 ✅ Displaying', topScores.length, 'entries');
+                topScores.forEach((entry, index) => {
+                    if (entry && entry.name && entry.score !== undefined) {
+                        const rank = index + 1;
+                        const rankClass = rank === 1 ? 'first' : rank === 2 ? 'second' : rank === 3 ? 'third' : '';
+                        const rankIcon = rank === 1 ? '👑' : rank === 2 ? '🥈' : '🥉';
+                        
+                        // Check if this is the current player
+                        const isMyPlayer = gameState.myPlayer && gameState.myPlayer.name === entry.name;
+                        
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = `alltime-leaderboard-item ${rankClass}`;
+                        if (isMyPlayer) {
+                            itemDiv.style.background = 'rgba(255, 215, 0, 0.2)';
+                            itemDiv.style.borderLeftColor = '#ffd700';
+                            itemDiv.style.boxShadow = '0 0 20px rgba(255, 215, 0, 0.4)';
+                        }
+                        
+                        // Format timestamp for daily leaderboard
+                        const timeAgo = entry.timestamp ? getTimeAgo(entry.timestamp) : 'Unknown';
+                        
+                        itemDiv.innerHTML = `
+                            <div class="alltime-leaderboard-rank ${rankClass}">${rankIcon}</div>
+                            <div class="alltime-leaderboard-player">
+                                <div class="alltime-leaderboard-name">${entry.name}${isMyPlayer ? ' (You)' : ''}</div>
+                                <div class="alltime-leaderboard-stats">${timeAgo}</div>
+                            </div>
+                            <div class="alltime-leaderboard-score">${entry.score}</div>
+                        `;
+                        
+                        alltimeLeaderboardList.appendChild(itemDiv);
+                        console.log(`👑 ✅ Added entry ${rank}: ${entry.name} - ${entry.score}`);
                     }
-                    
-                    // Format timestamp for daily leaderboard
-                    const timeAgo = entry.timestamp ? getTimeAgo(entry.timestamp) : 'Unknown';
-                    
-                    itemDiv.innerHTML = `
-                        <div class="alltime-leaderboard-rank ${rankClass}">${rankIcon}</div>
-                        <div class="alltime-leaderboard-player">
-                            <div class="alltime-leaderboard-name">${entry.name}${isMyPlayer ? ' (You)' : ''}</div>
-                            <div class="alltime-leaderboard-stats">${timeAgo}</div>
-                        </div>
-                        <div class="alltime-leaderboard-score">${entry.score}</div>
-                    `;
-                    
-                    alltimeLeaderboardList.appendChild(itemDiv);
                 });
             } else {
-                // Show placeholder content when no top scores are available yet
-                for (let i = 0; i < 3; i++) {
-                    const rank = i + 1;
-                    const rankClass = rank === 1 ? 'first' : rank === 2 ? 'second' : rank === 3 ? 'third' : '';
-                    const rankIcon = rank === 1 ? '👑' : rank === 2 ? '🥈' : '🥉';
-                    
-                    const itemDiv = document.createElement('div');
-                    itemDiv.className = `alltime-leaderboard-item ${rankClass}`;
-                    itemDiv.style.opacity = '0.5';
-                    
-                    itemDiv.innerHTML = `
-                        <div class="alltime-leaderboard-rank ${rankClass}">${rankIcon}</div>
-                        <div class="alltime-leaderboard-player">
-                            <div class="alltime-leaderboard-name">No legend yet</div>
-                            <div class="alltime-leaderboard-stats">Be the first!</div>
-                        </div>
-                        <div class="alltime-leaderboard-score">0</div>
-                    `;
-                    
-                    alltimeLeaderboardList.appendChild(itemDiv);
-                }
+                console.log('👑 ❌ No valid entries to display');
             }
         }
 

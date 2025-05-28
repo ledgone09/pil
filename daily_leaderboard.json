@@ -10,6 +10,16 @@
       "name": "ok",
       "score": 5,
       "timestamp": 1748469800364
+    },
+    "s": {
+      "name": "s",
+      "score": 2,
+      "timestamp": 1748472060556
+    },
+    "A": {
+      "name": "A",
+      "score": 4,
+      "timestamp": 1748472066836
     }
   },
   "resetTime": 1748502000000

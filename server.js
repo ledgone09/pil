@@ -259,30 +259,29 @@ function updateDailyLeaderboard(playerId, playerName, score) {
     const playerKey = playerName;
     const currentEntry = dailyLeaderboard.topScores.get(playerKey);
     
-    // Only update if this is a new high score for this player
-    if (!currentEntry || score > currentEntry.score) {
-        dailyLeaderboard.topScores.set(playerKey, {
-            name: playerName,
-            score: score,
-            timestamp: Date.now()
-        });
+    // Always update the player's current score (even if it's the same or lower)
+    dailyLeaderboard.topScores.set(playerKey, {
+        name: playerName,
+        score: score,
+        timestamp: Date.now()
+    });
+    
+    // Save to persistent storage
+    saveDailyLeaderboard();
+    
+    console.log(`📈 Daily leaderboard updated: ${playerName} - ${score} points`);
+    
+    // Always broadcast current standings to all players
+    const sortedScores = Array.from(dailyLeaderboard.topScores.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 10); // Top 10
         
-        // Save to persistent storage
-        saveDailyLeaderboard();
-        
-        // Broadcast updated leaderboard (without timeRemaining to avoid timer reset)
-        const sortedScores = Array.from(dailyLeaderboard.topScores.values())
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 10); // Top 10
-            
-        io.emit('dailyLeaderboardUpdate', {
-            topScores: sortedScores,
-            currentDay: dailyLeaderboard.currentDay
-            // Removed timeRemaining to prevent timer reset on pill collection
-        });
-        
-        console.log(`📈 Daily leaderboard updated: ${playerName} - ${score} points`);
-    }
+    console.log(`📊 Broadcasting daily leaderboard to all players:`, sortedScores);
+    io.emit('dailyLeaderboardUpdate', {
+        topScores: sortedScores,
+        currentDay: dailyLeaderboard.currentDay
+        // Removed timeRemaining to prevent timer reset on pill collection
+    });
 }
 
 // Load persistent data and initialize the daily reset system
@@ -320,8 +319,8 @@ setInterval(() => {
 }, 60 * 60 * 1000);
 
 // Pill settings
-const MAX_PILLS = 60; // Maximum pills on map at once (increased)
-const PILL_SPAWN_INTERVAL = 200; // 0.2 seconds between spawn attempts (very fast)
+const MAX_PILLS = 30; // Reduced from 60 for better performance
+const PILL_SPAWN_INTERVAL = 500; // Increased from 200ms to reduce network traffic
 const PILL_SIZE = 45; // Increased by 50%
 
 // Game settings
@@ -377,8 +376,6 @@ function generatePill() {
         ...pill,
         animated: true // Flag for client-side animation
     });
-    
-    console.log(`💊 Pill spawned: ${pillId} (${gameState.pills.size}/${MAX_PILLS} pills on map)`);
 }
 
 function checkPillCollection(playerId, playerX, playerY) {
@@ -478,8 +475,13 @@ io.on('connection', (socket) => {
         }
     };
     
-    console.log('Sending initial state:', currentState);
+    console.log('Sending initial state with daily leaderboard:', {
+        dailyLeaderboard: currentState.dailyLeaderboard,
+        dailyTopScoresCount: currentState.dailyLeaderboard.topScores.length,
+        dailyTopScoresContent: currentState.dailyLeaderboard.topScores
+    });
     socket.emit('gameState', currentState);
+    
     io.emit('playerUpdate', {
         id: newPlayer.id,
         x: newPlayer.x,
@@ -512,40 +514,22 @@ io.on('connection', (socket) => {
             const cleanUsername = username.trim().substring(0, 15);
             player.name = cleanUsername;
             
-            // Only restore score from current session or valid session token
-            let restoredScore = 0;
-            let sessionTokenUsed = false;
+            // Only restore score from valid session token - no automatic restoration
+            let restoredScore = 0; // Default to 0 for fresh start
             
-            // 1. Check if they have a valid session token
+            // Only restore score if they have a valid session token
             if (sessionToken && sessionTokens.has(sessionToken)) {
                 const tokenData = sessionTokens.get(sessionToken);
                 if (tokenData.name === cleanUsername) {
                     restoredScore = tokenData.score;
-                    sessionTokenUsed = true;
                     console.log(`Player ${cleanUsername} restored score using session token: ${restoredScore}`);
                     // Remove the token after use to prevent reuse
                     sessionTokens.delete(sessionToken);
-                }
-            }
-            
-            // 2. If no valid token, check current session
-            if (!sessionTokenUsed) {
-                // Check if this exact socket ID has a saved score with this username
-                const playerKey = `${cleanUsername}_${socket.id}`;
-                const savedScore = playerScores.get(playerKey);
-                if (savedScore) {
-                    restoredScore = savedScore.score;
-                    console.log(`Player ${cleanUsername} restored their own session score: ${restoredScore}`);
                 } else {
-                    // Check if this socket ID had a score with a different username in this session
-                    for (const [key, data] of playerScores.entries()) {
-                        if (key.endsWith(`_${socket.id}`)) {
-                            restoredScore = data.score;
-                            console.log(`Player ${cleanUsername} restored score from same session with different name: ${restoredScore}`);
-                            break;
-                        }
-                    }
+                    console.log(`Session token username mismatch: expected ${cleanUsername}, got ${tokenData.name}`);
                 }
+            } else {
+                console.log(`Player ${cleanUsername} starting fresh with score 0`);
             }
             
             // Set the restored score (starts at 0 for new players/sessions)
@@ -675,15 +659,22 @@ io.on('connection', (socket) => {
     });
 });
 
-// Pill spawning timer
+// Generate initial pills gradually instead of all at once for better performance
+let initialPillsSpawned = 0;
+const initialSpawnInterval = setInterval(() => {
+    if (initialPillsSpawned < MAX_PILLS) {
+        generatePill();
+        initialPillsSpawned++;
+    } else {
+        clearInterval(initialSpawnInterval);
+        console.log(`💊 Initial ${MAX_PILLS} pills spawned gradually`);
+    }
+}, 100); // Spawn one pill every 100ms
+
+// Regular pill spawning timer for ongoing gameplay
 setInterval(() => {
     generatePill();
 }, PILL_SPAWN_INTERVAL);
-
-// Generate initial pills to fill the map
-for (let i = 0; i < MAX_PILLS; i++) {
-    generatePill();
-}
 
 // Graceful shutdown handler
 function gracefulShutdown() {
